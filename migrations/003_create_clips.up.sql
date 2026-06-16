@@ -1,0 +1,31 @@
+CREATE TABLE IF NOT EXISTS clips (
+    id                   TEXT PRIMARY KEY,
+    project_id           TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    clip_index           INTEGER NOT NULL,
+    start_seconds        INTEGER NOT NULL,
+    end_seconds          INTEGER NOT NULL,
+    duration_seconds     INTEGER NOT NULL,
+    speaker              TEXT,
+    hook                 TEXT,
+    summary              TEXT,
+    category             TEXT,
+    energy_level         TEXT,
+    viral_score          REAL,
+    content_score        REAL,
+    engagement_score     REAL,
+    thumbnail_text       TEXT,
+    thumbnail_emotion    TEXT,
+    thumbnail_timestamp  INTEGER,
+    suggested_caption    TEXT,
+    transcript_excerpt   TEXT,
+    enabled              INTEGER NOT NULL DEFAULT 1,
+    status               TEXT NOT NULL DEFAULT 'pending',
+    raw_clip_path        TEXT,
+    face_data_json       TEXT,
+    subtitle_path        TEXT,
+    final_clip_path      TEXT,
+    created_at           DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at           DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_clips_project_id ON clips(project_id);

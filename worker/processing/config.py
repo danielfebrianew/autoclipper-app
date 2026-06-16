@@ -1,0 +1,27 @@
+import os
+
+FACE_SAMPLE_FPS = float(os.environ.get("AUTOCLIPPER_FACE_SAMPLE_FPS", "4"))
+
+SCENE_CUT_SCORE_THRESHOLD = float(os.environ.get("AUTOCLIPPER_SCENE_CUT_SCORE", "0.22"))
+SCENE_CUT_HIST_THRESHOLD  = float(os.environ.get("AUTOCLIPPER_SCENE_CUT_HIST",  "0.14"))
+SCENE_CUT_PIXEL_THRESHOLD = float(os.environ.get("AUTOCLIPPER_SCENE_CUT_PIXEL", "0.08"))
+SCENE_CUT_MIN_GAP_SEC     = float(os.environ.get("AUTOCLIPPER_SCENE_CUT_MIN_GAP", "0.30"))
+
+FOCUS_MIN_LOCK_SEC         = float(os.environ.get("AUTOCLIPPER_FOCUS_MIN_LOCK",       "1.50"))
+FOCUS_SWITCH_CONFIRM_SEC   = float(os.environ.get("AUTOCLIPPER_FOCUS_CONFIRM",        "0.85"))
+FOCUS_SWITCH_AREA_RATIO    = float(os.environ.get("AUTOCLIPPER_FOCUS_AREA_RATIO",     "1.35"))
+FOCUS_LOST_GRACE_SEC       = float(os.environ.get("AUTOCLIPPER_FOCUS_LOST_GRACE",     "0.80"))
+FOCUS_MATCH_DISTANCE_RATIO = float(os.environ.get("AUTOCLIPPER_FOCUS_MATCH_DISTANCE", "0.35"))
+
+CROP_DEADZONE_RATIO       = float(os.environ.get("AUTOCLIPPER_CROP_DEADZONE",         "0.07"))
+CROP_MIN_DEADZONE_PX      = float(os.environ.get("AUTOCLIPPER_CROP_MIN_DEADZONE_PX",  "36"))
+CROP_SMOOTHING_TAU_SEC    = float(os.environ.get("AUTOCLIPPER_CROP_SMOOTHING_TAU",    "0.45"))
+CROP_MAX_SPEED_PX_PER_SEC = float(os.environ.get("AUTOCLIPPER_CROP_MAX_SPEED",        "480"))
+
+MAX_FACES_PER_SAMPLE = int(os.environ.get("AUTOCLIPPER_MAX_FACES", "3"))
+
+SPLIT_SCREEN_TOP_RATIO = float(os.environ.get("AUTOCLIPPER_SPLIT_TOP_RATIO", "0.6"))
+
+# Encoder — h264_videotoolbox di macOS, libx264 fallback
+VIDEO_ENCODER    = os.environ.get("AUTOCLIPPER_ENCODER", "auto")  # auto|h264_videotoolbox|libx264
+VIDEO_BITRATE    = os.environ.get("AUTOCLIPPER_BITRATE", "5000k")

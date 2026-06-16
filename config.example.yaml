@@ -1,0 +1,56 @@
+# Auto Clipper Configuration
+# Copy config.example.yaml → config.yaml dan isi values-nya
+
+# === SECRETS (jangan share file ini) ===
+license:
+  salt: "your-random-salt-here-min-32-chars-long"
+
+encryption:
+  # HARUS tepat 32 byte (AES-256). Generate dengan:
+  #   LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32
+  key: "CHANGE-ME-to-exactly-32-bytes!!!"
+
+# === API ===
+gemini:
+  api_key: ""                          # User isi sendiri via Settings UI
+  base_url: "https://api.kie.ai"
+  model: "gemini-2.5-flash"
+
+# === PATHS ===
+paths:
+  data_dir: "~/.autoclipper"           # DB, models, venv, logs
+  output_dir: "~/AutoClipper Output"   # Generated clips
+  log_file: "~/.autoclipper/app.log"
+
+# === WORKER ===
+worker:
+  host: "127.0.0.1"
+  port: 8000
+
+# === PROCESSING DEFAULTS ===
+processing:
+  max_clips: 10
+  min_duration: 20
+  max_duration: 90
+  buffer_seconds: 5
+  transcript_language: "id"
+  subtitle_style: "tiktok"
+
+# === HEATMAP ===
+heatmap:
+  peak_threshold: 0.5
+  high_threshold: 0.7
+  engagement_weight: 0.6
+  content_weight: 0.4
+
+# === MODELS ===
+models:
+  yolo_face: "yolov8n-face.pt"
+  whisper: "tiny"                      # tiny | base | small
+
+# === DOWNLOAD URLS (for setup wizard) ===
+downloads:
+  ffmpeg:
+    mac: "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip"
+    windows: "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+  yolo_face: "https://github.com/lindevs/yolov8-face/releases/latest/download/yolov8n-face-lindevs.pt"

@@ -1,0 +1,11 @@
+ALTER TABLE clips ADD COLUMN aspect_ratio      TEXT    NOT NULL DEFAULT '9:16';
+ALTER TABLE clips ADD COLUMN caption_style     TEXT    NOT NULL DEFAULT 'bold';
+ALTER TABLE clips ADD COLUMN caption_position  TEXT    NOT NULL DEFAULT 'bot';
+ALTER TABLE clips ADD COLUMN caption_size      TEXT    NOT NULL DEFAULT 'M';
+ALTER TABLE clips ADD COLUMN caption_text      TEXT;
+ALTER TABLE clips ADD COLUMN track_template    TEXT    NOT NULL DEFAULT 'single';
+ALTER TABLE clips ADD COLUMN track_smooth      INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE clips ADD COLUMN track_lock_main   INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE clips ADD COLUMN track_sensitivity INTEGER NOT NULL DEFAULT 55;
+ALTER TABLE clips ADD COLUMN waveform_path     TEXT;
+ALTER TABLE clips ADD COLUMN favorite          INTEGER NOT NULL DEFAULT 0;

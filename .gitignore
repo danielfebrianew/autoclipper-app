@@ -1,0 +1,36 @@
+# === Docs (internal only) ===
+docs/
+
+# === Config & Secrets ===
+config.yaml
+
+# === Claude Code ===
+.claude/
+
+# === Go ===
+build/bin/
+*.exe
+*.test
+*.out
+
+# === Frontend ===
+frontend/dist/
+frontend/node_modules/
+frontend/.pnpm-store/
+
+# === Python ===
+autoclipper-service-venv/
+worker/.venv/
+**/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# === Runtime data ===
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# === macOS ===
+.DS_Store
