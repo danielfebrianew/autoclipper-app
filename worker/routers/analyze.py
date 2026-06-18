@@ -40,6 +40,26 @@ KRITERIA MOMEN MENARIK:
 Output HANYA dalam JSON, tanpa teks tambahan, tanpa markdown codeblock."""
 
 
+def _build_exclude_section(exclude_clips: list[dict]) -> str:
+    if not exclude_clips:
+        return ""
+    lines = []
+    for c in exclude_clips:
+        start = c.get("start_seconds", 0)
+        end = c.get("end_seconds", 0)
+        sm, ss = divmod(start, 60)
+        em, es = divmod(end, 60)
+        summary = c.get("summary", "")
+        lines.append(f"- [{sm:02d}:{ss:02d}–{em:02d}:{es:02d}] {summary}")
+    block = "\n".join(lines)
+    return f"""
+## KLIP YANG SUDAH DIPILIH (JANGAN diulang)
+Momen berikut SUDAH dijadikan klip. Cari momen LAIN yang berbeda —
+jangan overlap dengan rentang waktu ini, dan jangan pilih topik yang sama:
+{block}
+"""
+
+
 def _build_user_prompt(
     title: str,
     channel: str,
@@ -50,12 +70,16 @@ def _build_user_prompt(
     min_duration: int,
     max_duration: int,
     buffer: int = 5,
+    exclude_clips: list[dict] | None = None,
 ) -> str:
     m, s = divmod(duration, 60)
     h, m = divmod(m, 60)
     duration_fmt = f"{h:02d}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
+    exclude_section = _build_exclude_section(exclude_clips or [])
 
-    return f"""Analisis video berikut dan identifikasi {max_clips} momen terbaik untuk dijadikan short clip ({min_duration}-{max_duration} detik). Kasih buffer {buffer} detik di awal dan akhir tiap momen.
+    action = f"Temukan {max_clips} klip BARU yang belum tercakup di atas." if exclude_clips else f"identifikasi {max_clips} momen terbaik"
+
+    return f"""Analisis video berikut dan {action} untuk dijadikan short clip ({min_duration}-{max_duration} detik). Kasih buffer {buffer} detik di awal dan akhir tiap momen.{exclude_section}
 
 ## VIDEO INFO
 - Judul: {title}
@@ -146,6 +170,8 @@ class AnalyzeRequest(BaseModel):
     # Snippets mentah untuk timestamp snapping (dikirim oleh orchestrator)
     snippets: list[dict] = []
     video_duration_seconds: int = 0
+    # Klip existing yang harus dihindari (untuk "generate klip lagi")
+    exclude_clips: list[dict] = []
 
 
 @router.post("/analyze")
@@ -162,6 +188,7 @@ def analyze_video(req: AnalyzeRequest):
         min_duration=req.min_duration,
         max_duration=req.max_duration,
         buffer=req.buffer_seconds,
+        exclude_clips=req.exclude_clips or [],
     )
 
     # Format content sebagai array block — kie.ai/gemini-3 mengharapkan bentuk

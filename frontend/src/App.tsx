@@ -7,9 +7,10 @@ import { setScreen } from './store/slices/uiSlice'
 import { setDownloadProgress, clearDownloadProgress, fetchProjects } from './store/slices/projectSlice'
 import { setGenerateProgress, setClipDone, fetchClips } from './store/slices/clipSlice'
 import { appendLog, setStreaming } from './store/slices/logSlice'
+import { markSourceDeleted, updateVideoStatus, bumpClipCount, fetchStorage } from './store/slices/librarySlice'
 import { EventsOn } from '../wailsjs/runtime/runtime'
 import { Toaster } from 'react-hot-toast'
-import { toastError } from './lib/toast'
+import { toastError, toastSuccess } from './lib/toast'
 
 // Screens
 import BootstrapScreen from './screens/BootstrapScreen'
@@ -50,6 +51,7 @@ function AppInner() {
 
     EventsOn('download:progress', (ev: { project_id: string; step: string; percent: number; message: string }) => {
       dispatch(setDownloadProgress({ projectId: ev.project_id, step: ev.step, percent: ev.percent, message: ev.message }))
+      dispatch(updateVideoStatus({ projectId: ev.project_id, status: ev.step }))
       // On every new phase (metadata→download→transcript→…), pull the updated
       // project row so the thread/sidebar reflect title + status immediately.
       if (lastStep[ev.project_id] !== ev.step) {
@@ -57,11 +59,20 @@ function AppInner() {
         dispatch(fetchProjects())
       }
     })
-    EventsOn('download:complete', (ev: { project_id: string }) => {
+    EventsOn('download:complete', (ev: { project_id: string; new_clips?: number }) => {
       dispatch(clearDownloadProgress(ev.project_id))
       delete lastStep[ev.project_id]
       dispatch(fetchProjects())
-      dispatch(fetchClips(ev.project_id))   // analysis done → load the new clips
+      dispatch(fetchClips(ev.project_id))
+      dispatch(fetchStorage())
+      if (typeof ev.new_clips === 'number') {
+        if (ev.new_clips > 0) {
+          dispatch(bumpClipCount({ projectId: ev.project_id, newClips: ev.new_clips }))
+          toastSuccess(`${ev.new_clips} klip baru ditemukan!`)
+        } else {
+          toastSuccess('Tidak ada klip baru yang ditemukan dari video ini.')
+        }
+      }
     })
     EventsOn('download:error', (ev: { project_id: string; step: string; error: string }) => {
       dispatch(clearDownloadProgress(ev.project_id))
@@ -86,6 +97,10 @@ function AppInner() {
       dispatch(setStreaming(false))
       if (ev?.project_id) dispatch(fetchClips(ev.project_id))
     })
+    EventsOn('library:source_deleted', (ev: { project_id: string }) => {
+      dispatch(markSourceDeleted(ev.project_id))
+      dispatch(fetchStorage())
+    })
   }, [])
 
   if (loading) {
@@ -96,7 +111,7 @@ function AppInner() {
     )
   }
 
-  const isMain = screen === 'workspace' || screen === 'gallery'
+  const isMain = screen === 'workspace' || screen === 'gallery' || screen === 'library'
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>

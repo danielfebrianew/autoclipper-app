@@ -7,6 +7,7 @@ import ActivityColumn from '../screens/workspace/ActivityColumn'
 import EmptyColumn from '../screens/workspace/EmptyColumn'
 import WorkspaceMain from '../screens/workspace/WorkspaceMain'
 import EmptyState from '../screens/workspace/EmptyState'
+import LibraryMain from '../screens/library/LibraryMain'
 
 export default function MainShell() {
   const screen = useAppSelector(s => s.ui.screen)
@@ -14,6 +15,7 @@ export default function MainShell() {
   const hasProject = !!activeProjectId
 
   const isGallery = screen === 'gallery'
+  const isLibrary = screen === 'library'
 
   return (
     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
@@ -23,15 +25,21 @@ export default function MainShell() {
       <Toolbar />
 
       <div style={{ flex: 1, display: 'flex', minHeight: 0, position: 'relative', zIndex: 2 }}>
-        {/* Left column */}
-        {isGallery
-          ? <GalleryColumn />
-          : hasProject ? <ActivityColumn /> : <EmptyColumn />}
+        {isLibrary ? (
+          <LibraryMain />
+        ) : (
+          <>
+            {/* Left column */}
+            {isGallery
+              ? <GalleryColumn />
+              : hasProject ? <ActivityColumn /> : <EmptyColumn />}
 
-        {/* Main area */}
-        {isGallery
-          ? <GalleryMain />
-          : hasProject ? <WorkspaceMain /> : <EmptyState />}
+            {/* Main area */}
+            {isGallery
+              ? <GalleryMain />
+              : hasProject ? <WorkspaceMain /> : <EmptyState />}
+          </>
+        )}
       </div>
     </div>
   )

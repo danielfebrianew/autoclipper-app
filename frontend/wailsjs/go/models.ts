@@ -398,6 +398,38 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class LibraryVideo {
+	    project_id: string;
+	    title: string;
+	    youtube_url: string;
+	    duration: number;
+	    source_bytes: number;
+	    video_path: string;
+	    file_exists: boolean;
+	    status: string;
+	    thumb_path: string;
+	    clip_count: number;
+	    created_at: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new LibraryVideo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.project_id = source["project_id"];
+	        this.title = source["title"];
+	        this.youtube_url = source["youtube_url"];
+	        this.duration = source["duration"];
+	        this.source_bytes = source["source_bytes"];
+	        this.video_path = source["video_path"];
+	        this.file_exists = source["file_exists"];
+	        this.status = source["status"];
+	        this.thumb_path = source["thumb_path"];
+	        this.clip_count = source["clip_count"];
+	        this.created_at = source["created_at"];
+	    }
+	}
 	export class LicenseStatus {
 	    valid: boolean;
 	    serial: string;

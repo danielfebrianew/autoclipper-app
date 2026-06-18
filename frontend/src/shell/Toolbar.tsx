@@ -1,14 +1,16 @@
-import { LightningIcon, ImageIcon, GearSixIcon, SparkleIcon } from '@phosphor-icons/react'
+import { LightningIcon, ImageIcon, GearSixIcon, SparkleIcon, HardDrivesIcon } from '@phosphor-icons/react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { setScreen, openOverlay } from '../store/slices/uiSlice'
 
-type Tab = 'workspace' | 'gallery'
+type Tab = 'workspace' | 'library' | 'gallery'
 
 export default function Toolbar() {
   const dispatch = useAppDispatch()
   const screen = useAppSelector(s => s.ui.screen)
 
-  const active = (screen === 'workspace' ? 'workspace' : screen === 'gallery' ? 'gallery' : 'workspace') as Tab
+  const active: Tab = (screen === 'workspace' || screen === 'library' || screen === 'gallery')
+    ? screen
+    : 'workspace'
 
   return (
     <div style={{
@@ -41,9 +43,17 @@ export default function Toolbar() {
         </span>
       </div>
 
-      {/* Nav chips */}
-      <div style={{ display: 'flex', gap: 3, marginLeft: 10, padding: 4, borderRadius: 12 }} className="glass">
-        {([['workspace', 'Workspace', LightningIcon], ['gallery', 'Gallery', ImageIcon]] as const).map(([id, label, Icon]) => (
+      {/* Nav chips — centered absolutely so it's always in the middle of the bar */}
+      <div style={{
+        position: 'absolute', left: '50%', top: '50%',
+        transform: 'translate(-50%, -50%)',
+        display: 'flex', gap: 3, padding: 4, borderRadius: 12,
+      }} className="glass">
+        {([
+          ['workspace', 'Workspace', LightningIcon],
+          ['library',   'Library',   HardDrivesIcon],
+          ['gallery',   'Gallery',   ImageIcon],
+        ] as const).map(([id, label, Icon]) => (
           <button
             key={id}
             onClick={() => dispatch(setScreen(id))}

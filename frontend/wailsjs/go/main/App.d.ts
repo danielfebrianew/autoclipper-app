@@ -26,11 +26,15 @@ export function DeleteClips(arg1:Array<string>):Promise<void>;
 
 export function DeleteProject(arg1:string):Promise<void>;
 
+export function DeleteSourceVideo(arg1:string):Promise<void>;
+
 export function DeleteVideos(arg1:Array<string>):Promise<void>;
 
 export function DownloadAllAsZip(arg1:string):Promise<string>;
 
 export function ExportClips(arg1:Array<string>,arg2:main.ExportOpts):Promise<void>;
+
+export function FindMoreClips(arg1:string):Promise<void>;
 
 export function GenerateClips(arg1:string,arg2:Array<string>):Promise<void>;
 
@@ -76,6 +80,8 @@ export function IsLicenseValid():Promise<boolean>;
 
 export function IsSetupComplete():Promise<boolean>;
 
+export function ListLibraryVideos():Promise<Array<main.LibraryVideo>>;
+
 export function ListProjects():Promise<Array<project.Project>>;
 
 export function OnFileDrop(arg1:Array<string>):Promise<void>;
@@ -85,6 +91,8 @@ export function OpenFolder(arg1:string):Promise<void>;
 export function PreviewReframe(arg1:string,arg2:string):Promise<main.CropPlan>;
 
 export function RedownloadDependency(arg1:string):Promise<void>;
+
+export function RedownloadSource(arg1:string):Promise<void>;
 
 export function RegenerateCaption(arg1:string):Promise<string>;
 

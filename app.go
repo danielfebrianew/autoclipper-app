@@ -1102,6 +1102,193 @@ func (a *App) DeleteAllSource() (int64, error) {
 	return freed, nil
 }
 
+// === Library ===
+
+type LibraryVideo struct {
+	ProjectID   string `json:"project_id"`
+	Title       string `json:"title"`
+	YoutubeURL  string `json:"youtube_url"`
+	Duration    int    `json:"duration"`
+	SourceBytes int64  `json:"source_bytes"`
+	VideoPath   string `json:"video_path"`
+	FileExists  bool   `json:"file_exists"`
+	Status      string `json:"status"`
+	ThumbPath   string `json:"thumb_path"`
+	ClipCount   int    `json:"clip_count"`
+	CreatedAt   string `json:"created_at"`
+}
+
+func (a *App) ListLibraryVideos() ([]LibraryVideo, error) {
+	projects, err := a.projectRepo.List()
+	if err != nil {
+		return nil, err
+	}
+
+	var result []LibraryVideo
+	for _, p := range projects {
+		if p.IsLocal {
+			continue
+		}
+
+		// Count clips
+		clips, _ := a.clipRepo.GetByProject(p.ID)
+		clipCount := len(clips)
+
+		// Check file exists live
+		fileExists := false
+		sourceBytes := p.SourceBytes
+		if p.VideoPath != "" {
+			fi, err := os.Stat(p.VideoPath)
+			if err == nil {
+				fileExists = true
+				if sourceBytes == 0 {
+					sourceBytes = fi.Size()
+				}
+			}
+		}
+
+		// First thumbnail asset for this project
+		thumbPath := ""
+		for _, c := range clips {
+			assets, _ := a.assetRepo.GetByClip(c.ID)
+			for _, asset := range assets {
+				if asset.Kind == "thumbnail" {
+					thumbPath = asset.Path
+					break
+				}
+			}
+			if thumbPath != "" {
+				break
+			}
+		}
+
+		result = append(result, LibraryVideo{
+			ProjectID:   p.ID,
+			Title:       p.Title,
+			YoutubeURL:  p.YoutubeURL,
+			Duration:    p.Duration,
+			SourceBytes: sourceBytes,
+			VideoPath:   p.VideoPath,
+			FileExists:  fileExists,
+			Status:      p.Status,
+			ThumbPath:   thumbPath,
+			ClipCount:   clipCount,
+			CreatedAt:   p.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		})
+	}
+	return result, nil
+}
+
+func (a *App) DeleteSourceVideo(projectID string) error {
+	p, err := a.projectSvc.GetByID(projectID)
+	if err != nil {
+		return err
+	}
+	if p.VideoPath != "" {
+		os.Remove(p.VideoPath)
+		a.projectRepo.UpdateField(projectID, "video_path", "")
+		a.projectRepo.UpdateField(projectID, "source_bytes", 0)
+	}
+	wailsruntime.EventsEmit(a.ctx, "library:source_deleted", map[string]string{"project_id": projectID})
+	return nil
+}
+
+func (a *App) FindMoreClips(projectID string) error {
+	p, err := a.projectSvc.GetByID(projectID)
+	if err != nil {
+		return err
+	}
+	if p.Status != "ready" && p.Status != "error" {
+		return fmt.Errorf("project sedang diproses, coba lagi setelah selesai")
+	}
+	if p.TranscriptJSON == "" && p.VideoID == "" {
+		return fmt.Errorf("tidak ada transkrip yang tersimpan untuk video ini")
+	}
+
+	s, err := a.settingsSvc.Get()
+	if err != nil {
+		return err
+	}
+	apiKey := analyzeKey(s)
+	if apiKey == "" {
+		return fmt.Errorf("API key belum diatur — buka Pengaturan → API Keys")
+	}
+
+	// Build exclude list from existing clips
+	existingClips, err := a.clipRepo.GetByProject(projectID)
+	if err != nil {
+		return err
+	}
+	excludeClips := make([]pipeline.ExcludeClip, 0, len(existingClips))
+	for _, c := range existingClips {
+		excludeClips = append(excludeClips, pipeline.ExcludeClip{
+			StartSeconds: c.StartSeconds,
+			EndSeconds:   c.EndSeconds,
+			Summary:      c.Summary,
+		})
+	}
+
+	go func() {
+		ctx := context.Background()
+		if err := a.orchestrator.RunAnalyzeOnly(ctx, projectID, apiKey, excludeClips); err != nil {
+			log.Error().Err(err).Str("project_id", projectID).Msg("FindMoreClips failed")
+		}
+	}()
+
+	return nil
+}
+
+func (a *App) RedownloadSource(projectID string) error {
+	p, err := a.projectSvc.GetByID(projectID)
+	if err != nil {
+		return err
+	}
+	if p.YoutubeURL == "" {
+		return fmt.Errorf("project tidak punya YouTube URL")
+	}
+
+	go func() {
+		ctx := context.Background()
+		emit := func(step string, pct float64, msg string) {
+			wailsruntime.EventsEmit(a.ctx, "download:progress", pipeline.ProgressEvent{
+				ProjectID: projectID,
+				Step:      step,
+				Percent:   pct,
+				Message:   msg,
+			})
+		}
+
+		emit("download", 5, "Mengunduh ulang video…")
+		a.projectRepo.UpdateStatus(projectID, "downloading")
+
+		dlResp, err := a.worker.Download(ctx, pipeline.DownloadRequest{
+			URL:     p.YoutubeURL,
+			VideoID: p.VideoID,
+			OutDir:  filepath.Join(a.cfg.Paths.DataDir, "videos"),
+		}, func(pct float64, msg string) {
+			overall := 5 + pct*0.9
+			emit("download", overall, msg)
+		})
+		if err != nil {
+			wailsruntime.EventsEmit(a.ctx, "download:error", map[string]string{
+				"project_id": projectID, "step": "download", "error": err.Error(),
+			})
+			a.projectRepo.UpdateStatus(projectID, "error")
+			return
+		}
+
+		a.projectRepo.UpdateField(projectID, "video_path", dlResp.VideoPath)
+		fi, err := os.Stat(dlResp.VideoPath)
+		if err == nil {
+			a.projectRepo.UpdateField(projectID, "source_bytes", fi.Size())
+		}
+		a.projectRepo.UpdateStatus(projectID, "ready")
+		wailsruntime.EventsEmit(a.ctx, "download:complete", map[string]string{"project_id": projectID})
+	}()
+
+	return nil
+}
+
 // === Utility ===
 
 func (a *App) OpenFolder(path string) error {

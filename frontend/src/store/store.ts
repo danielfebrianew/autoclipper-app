@@ -6,6 +6,7 @@ import uiReducer from './slices/uiSlice'
 import galleryReducer from './slices/gallerySlice'
 import logReducer from './slices/logSlice'
 import settingsReducer from './slices/settingsSlice'
+import libraryReducer from './slices/librarySlice'
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
     gallery: galleryReducer,
     log: logReducer,
     settings: settingsReducer,
+    library: libraryReducer,
   },
 })
 

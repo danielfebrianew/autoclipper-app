@@ -101,21 +101,28 @@ type TranscriptSegment struct {
 	Duration float64 `json:"duration"`
 }
 
+type ExcludeClip struct {
+	StartSeconds int    `json:"start_seconds"`
+	EndSeconds   int    `json:"end_seconds"`
+	Summary      string `json:"summary"`
+}
+
 type AnalyzeRequest struct {
-	Transcript             string            `json:"transcript"`
-	HeatmapText            string            `json:"heatmap_text"`
-	Title                  string            `json:"title"`
-	Channel                string            `json:"channel"`
-	Duration               int               `json:"duration"`
-	APIKey                 string            `json:"api_key"`
-	Model                  string            `json:"model"`
-	BaseURL                string            `json:"base_url"`
-	MaxClips               int               `json:"max_clips"`
-	MinDuration            int               `json:"min_duration"`
-	MaxDuration            int               `json:"max_duration"`
-	BufferSeconds          int               `json:"buffer_seconds"`
-	Snippets               []TranscriptSegment `json:"snippets"`
-	VideoDurationSeconds   int               `json:"video_duration_seconds"`
+	Transcript           string            `json:"transcript"`
+	HeatmapText          string            `json:"heatmap_text"`
+	Title                string            `json:"title"`
+	Channel              string            `json:"channel"`
+	Duration             int               `json:"duration"`
+	APIKey               string            `json:"api_key"`
+	Model                string            `json:"model"`
+	BaseURL              string            `json:"base_url"`
+	MaxClips             int               `json:"max_clips"`
+	MinDuration          int               `json:"min_duration"`
+	MaxDuration          int               `json:"max_duration"`
+	BufferSeconds        int               `json:"buffer_seconds"`
+	Snippets             []TranscriptSegment `json:"snippets"`
+	VideoDurationSeconds int               `json:"video_duration_seconds"`
+	ExcludeClips         []ExcludeClip     `json:"exclude_clips,omitempty"`
 }
 
 type Speaker struct {

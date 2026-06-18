@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
-export type Screen = 'bootstrap' | 'activation' | 'offline' | 'workspace' | 'gallery'
+export type Screen = 'bootstrap' | 'activation' | 'offline' | 'workspace' | 'gallery' | 'library'
 export type Overlay = 'preview' | 'log' | 'export' | 'settings' | 'delete' | 'play' | null
 
 export interface PlayTarget {

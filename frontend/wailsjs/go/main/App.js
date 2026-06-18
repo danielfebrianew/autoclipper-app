@@ -42,6 +42,10 @@ export function DeleteProject(arg1) {
   return window['go']['main']['App']['DeleteProject'](arg1);
 }
 
+export function DeleteSourceVideo(arg1) {
+  return window['go']['main']['App']['DeleteSourceVideo'](arg1);
+}
+
 export function DeleteVideos(arg1) {
   return window['go']['main']['App']['DeleteVideos'](arg1);
 }
@@ -52,6 +56,10 @@ export function DownloadAllAsZip(arg1) {
 
 export function ExportClips(arg1, arg2) {
   return window['go']['main']['App']['ExportClips'](arg1, arg2);
+}
+
+export function FindMoreClips(arg1) {
+  return window['go']['main']['App']['FindMoreClips'](arg1);
 }
 
 export function GenerateClips(arg1, arg2) {
@@ -142,6 +150,10 @@ export function IsSetupComplete() {
   return window['go']['main']['App']['IsSetupComplete']();
 }
 
+export function ListLibraryVideos() {
+  return window['go']['main']['App']['ListLibraryVideos']();
+}
+
 export function ListProjects() {
   return window['go']['main']['App']['ListProjects']();
 }
@@ -160,6 +172,10 @@ export function PreviewReframe(arg1, arg2) {
 
 export function RedownloadDependency(arg1) {
   return window['go']['main']['App']['RedownloadDependency'](arg1);
+}
+
+export function RedownloadSource(arg1) {
+  return window['go']['main']['App']['RedownloadSource'](arg1);
 }
 
 export function RegenerateCaption(arg1) {
