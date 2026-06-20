@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
-export type Screen = 'bootstrap' | 'activation' | 'offline' | 'workspace' | 'gallery' | 'library'
+export type Screen = 'bootstrap' | 'activation' | 'offline' | 'workspace' | 'gallery' | 'library' | 'overlay-editor'
 export type Overlay = 'preview' | 'log' | 'export' | 'settings' | 'delete' | 'play' | null
 
 export interface PlayTarget {
@@ -18,6 +18,7 @@ interface UIState {
   deleteProjectId: string | null
   activeProjectId: string | null
   playTarget: PlayTarget | null
+  overlayProjectId: string | null   // active overlay-editor project
 }
 
 const initialState: UIState = {
@@ -30,6 +31,7 @@ const initialState: UIState = {
   deleteProjectId: null,
   activeProjectId: null,
   playTarget: null,
+  overlayProjectId: null,
 }
 
 const uiSlice = createSlice({
@@ -78,12 +80,18 @@ const uiSlice = createSlice({
     setActiveProject(state, action: PayloadAction<string | null>) {
       state.activeProjectId = action.payload
     },
+    // Open the overlay editor on a specific project (or null to open the list).
+    openOverlayEditor(state, action: PayloadAction<string | null>) {
+      state.overlayProjectId = action.payload
+      state.screen = 'overlay-editor'
+      state.overlay = null
+    },
   },
 })
 
 export const {
   setScreen, openOverlay, closeOverlay,
   openPreview, setPreviewTab, openExport, openDelete, openDeleteProject,
-  openPlay, setActiveProject,
+  openPlay, setActiveProject, openOverlayEditor,
 } = uiSlice.actions
 export default uiSlice.reducer

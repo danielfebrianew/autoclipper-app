@@ -472,3 +472,81 @@ func (c *WorkerClient) GenerateCaption(ctx context.Context, req CaptionRequest) 
 	var result CaptionResponse
 	return &result, c.post(ctx, "/caption", req, &result)
 }
+
+// --- Overlay editor (porting ContextClipper render.py) ---
+
+type OverlayProbeRequest struct {
+	VideoPath string `json:"video_path"`
+}
+
+type OverlayProbeResponse struct {
+	Width    int     `json:"width"`
+	Height   int     `json:"height"`
+	FPS      float64 `json:"fps"`
+	Duration float64 `json:"duration"`
+}
+
+func (c *WorkerClient) OverlayProbe(ctx context.Context, req OverlayProbeRequest) (*OverlayProbeResponse, error) {
+	var result OverlayProbeResponse
+	return &result, c.post(ctx, "/overlay/probe", req, &result)
+}
+
+type OverlaySpec struct {
+	Kind       string  `json:"kind"`
+	Path       string  `json:"path"`
+	Fit        string  `json:"fit"`
+	TrimOffset float64 `json:"trim_offset"`
+}
+
+type OverlayClickSpec struct {
+	Enabled   bool    `json:"enabled"`
+	Volume    float64 `json:"volume"`
+	AssetPath string  `json:"asset_path"`
+}
+
+type OverlayRenderSegmentRequest struct {
+	Kind            string           `json:"kind"` // copy|overlay|cover
+	SourcePath      string           `json:"source_path"`
+	OutPath         string           `json:"out_path"`
+	SegStart        float64          `json:"seg_start"`
+	SegEnd          float64          `json:"seg_end"`
+	OutWidth        int              `json:"out_width"`
+	OutHeight       int              `json:"out_height"`
+	FPS             float64          `json:"fps"`
+	CodecHint       string           `json:"codec_hint"`
+	BackgroundColor string           `json:"background_color"`
+	AreaRatio       float64          `json:"area_ratio"`
+	ForceReencode   bool             `json:"force_reencode"`
+	Overlays        []OverlaySpec    `json:"overlays"`
+	Click           OverlayClickSpec `json:"click"`
+	CoverImage      string           `json:"cover_image"`
+	CoverDuration   float64          `json:"cover_duration"`
+}
+
+type OverlayRenderSegmentResponse struct {
+	Code    int    `json:"code"`
+	OutPath string `json:"out_path"`
+}
+
+func (c *WorkerClient) OverlayRenderSegment(ctx context.Context, req OverlayRenderSegmentRequest) (*OverlayRenderSegmentResponse, error) {
+	var result OverlayRenderSegmentResponse
+	return &result, c.post(ctx, "/overlay/render-segment", req, &result)
+}
+
+type OverlayConcatRequest struct {
+	Inputs        []string `json:"inputs"`
+	OutPath       string   `json:"out_path"`
+	TmpDir        string   `json:"tmp_dir"`
+	TryStreamCopy bool     `json:"try_stream_copy"`
+}
+
+type OverlayConcatResponse struct {
+	Code      int    `json:"code"`
+	OutPath   string `json:"out_path"`
+	Reencoded bool   `json:"reencoded"`
+}
+
+func (c *WorkerClient) OverlayConcat(ctx context.Context, req OverlayConcatRequest) (*OverlayConcatResponse, error) {
+	var result OverlayConcatResponse
+	return &result, c.post(ctx, "/overlay/concat", req, &result)
+}

@@ -628,6 +628,165 @@ export namespace main {
 
 }
 
+export namespace overlay {
+	
+	export class Click {
+	    enabled: boolean;
+	    volume: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Click(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.volume = source["volume"];
+	    }
+	}
+	export class Cover {
+	    path: string;
+	    duration_sec: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Cover(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.duration_sec = source["duration_sec"];
+	    }
+	}
+	export class Image {
+	    id: string;
+	    path: string;
+	    name: string;
+	    width: number;
+	    height: number;
+	    created_at: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Image(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.path = source["path"];
+	        this.name = source["name"];
+	        this.width = source["width"];
+	        this.height = source["height"];
+	        this.created_at = source["created_at"];
+	    }
+	}
+	export class Layout {
+	    image_area_ratio: number;
+	    image_fit: string;
+	    background_color: string;
+	    aspect_ratio: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Layout(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.image_area_ratio = source["image_area_ratio"];
+	        this.image_fit = source["image_fit"];
+	        this.background_color = source["background_color"];
+	        this.aspect_ratio = source["aspect_ratio"];
+	    }
+	}
+	export class Track {
+	    id: string;
+	    kind: string;
+	    asset_path: string;
+	    asset_name: string;
+	    start_sec: number;
+	    end_sec: number;
+	    trim_start_sec: number;
+	    fit_override: string;
+	    click_enabled?: boolean;
+	    sort_order: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Track(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.kind = source["kind"];
+	        this.asset_path = source["asset_path"];
+	        this.asset_name = source["asset_name"];
+	        this.start_sec = source["start_sec"];
+	        this.end_sec = source["end_sec"];
+	        this.trim_start_sec = source["trim_start_sec"];
+	        this.fit_override = source["fit_override"];
+	        this.click_enabled = source["click_enabled"];
+	        this.sort_order = source["sort_order"];
+	    }
+	}
+	export class Project {
+	    id: string;
+	    name: string;
+	    source_video_path: string;
+	    source_clip_id: string;
+	    video_width: number;
+	    video_height: number;
+	    video_fps: number;
+	    video_duration: number;
+	    layout: Layout;
+	    click_sound: Click;
+	    cover?: Cover;
+	    tracks: Track[];
+	    created_at: string;
+	    updated_at: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Project(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.source_video_path = source["source_video_path"];
+	        this.source_clip_id = source["source_clip_id"];
+	        this.video_width = source["video_width"];
+	        this.video_height = source["video_height"];
+	        this.video_fps = source["video_fps"];
+	        this.video_duration = source["video_duration"];
+	        this.layout = this.convertValues(source["layout"], Layout);
+	        this.click_sound = this.convertValues(source["click_sound"], Click);
+	        this.cover = this.convertValues(source["cover"], Cover);
+	        this.tracks = this.convertValues(source["tracks"], Track);
+	        this.created_at = source["created_at"];
+	        this.updated_at = source["updated_at"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
 export namespace project {
 	
 	export class Project {

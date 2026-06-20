@@ -7,7 +7,8 @@ import { setScreen } from './store/slices/uiSlice'
 import { setDownloadProgress, clearDownloadProgress, fetchProjects } from './store/slices/projectSlice'
 import { setGenerateProgress, setClipDone, fetchClips } from './store/slices/clipSlice'
 import { appendLog, setStreaming } from './store/slices/logSlice'
-import { markSourceDeleted, updateVideoStatus, bumpClipCount, fetchStorage } from './store/slices/librarySlice'
+import { markSourceDeleted, updateVideoStatus, fetchStorage, fetchLibrary } from './store/slices/librarySlice'
+import { setRenderProgress, setRenderDone, setRenderError } from './store/slices/overlaySlice'
 import { EventsOn } from '../wailsjs/runtime/runtime'
 import { Toaster } from 'react-hot-toast'
 import { toastError, toastSuccess } from './lib/toast'
@@ -49,34 +50,37 @@ function AppInner() {
     // pipeline phase transition refreshes the project list exactly once.
     let lastStep: Record<string, string> = {}
 
-    EventsOn('download:progress', (ev: { project_id: string; step: string; percent: number; message: string }) => {
-      dispatch(setDownloadProgress({ projectId: ev.project_id, step: ev.step, percent: ev.percent, message: ev.message }))
-      dispatch(updateVideoStatus({ projectId: ev.project_id, status: ev.step }))
+    EventsOn('download:progress', (ev: { project_id?: string; video_id?: string; step: string; percent: number; message: string }) => {
+      const key = ev.project_id || ev.video_id || ''
+      dispatch(setDownloadProgress({ projectId: key, step: ev.step, percent: ev.percent, message: ev.message }))
+      if (ev.video_id) dispatch(updateVideoStatus({ videoId: ev.video_id, status: ev.step }))
       // On every new phase (metadata→download→transcript→…), pull the updated
       // project row so the thread/sidebar reflect title + status immediately.
-      if (lastStep[ev.project_id] !== ev.step) {
-        lastStep[ev.project_id] = ev.step
+      if (lastStep[key] !== ev.step) {
+        lastStep[key] = ev.step
         dispatch(fetchProjects())
       }
     })
-    EventsOn('download:complete', (ev: { project_id: string; new_clips?: number }) => {
-      dispatch(clearDownloadProgress(ev.project_id))
-      delete lastStep[ev.project_id]
+    EventsOn('download:complete', (ev: { project_id?: string; video_id?: string; new_clips?: number }) => {
+      const key = ev.project_id || ev.video_id || ''
+      dispatch(clearDownloadProgress(key))
+      delete lastStep[key]
       dispatch(fetchProjects())
-      dispatch(fetchClips(ev.project_id))
+      if (ev.project_id) dispatch(fetchClips(ev.project_id))
       dispatch(fetchStorage())
+      dispatch(fetchLibrary())   // refresh video card counts/status
       if (typeof ev.new_clips === 'number') {
         if (ev.new_clips > 0) {
-          dispatch(bumpClipCount({ projectId: ev.project_id, newClips: ev.new_clips }))
           toastSuccess(`${ev.new_clips} klip baru ditemukan!`)
         } else {
           toastSuccess('Tidak ada klip baru yang ditemukan dari video ini.')
         }
       }
     })
-    EventsOn('download:error', (ev: { project_id: string; step: string; error: string }) => {
-      dispatch(clearDownloadProgress(ev.project_id))
-      delete lastStep[ev.project_id]
+    EventsOn('download:error', (ev: { project_id?: string; video_id?: string; step: string; error: string }) => {
+      const key = ev.project_id || ev.video_id || ''
+      dispatch(clearDownloadProgress(key))
+      delete lastStep[key]
       dispatch(fetchProjects())   // refresh so the thread step turns red
       toastError(`Gagal di tahap ${ev.step}: ${ev.error}`)
     })
@@ -97,9 +101,20 @@ function AppInner() {
       dispatch(setStreaming(false))
       if (ev?.project_id) dispatch(fetchClips(ev.project_id))
     })
-    EventsOn('library:source_deleted', (ev: { project_id: string }) => {
-      dispatch(markSourceDeleted(ev.project_id))
+    EventsOn('library:source_deleted', (ev: { video_id: string }) => {
+      dispatch(markSourceDeleted(ev.video_id))
       dispatch(fetchStorage())
+    })
+    EventsOn('overlay:render_progress', (ev: { percent: number; message: string }) => {
+      dispatch(setRenderProgress({ percent: ev.percent, message: ev.message }))
+    })
+    EventsOn('overlay:render_done', (ev: { output_path: string }) => {
+      dispatch(setRenderDone(ev.output_path))
+      toastSuccess('Render overlay selesai!')
+    })
+    EventsOn('overlay:render_error', (ev: { error: string }) => {
+      dispatch(setRenderError(ev.error))
+      toastError(`Render overlay gagal: ${ev.error}`)
     })
   }, [])
 
@@ -111,7 +126,7 @@ function AppInner() {
     )
   }
 
-  const isMain = screen === 'workspace' || screen === 'gallery' || screen === 'library'
+  const isMain = screen === 'workspace' || screen === 'gallery' || screen === 'library' || screen === 'overlay-editor'
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>

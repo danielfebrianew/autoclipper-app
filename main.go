@@ -14,8 +14,10 @@ import (
 	"auto-clipper/internal/config"
 	"auto-clipper/internal/database"
 	applogger "auto-clipper/internal/logger"
+	"auto-clipper/internal/overlay"
 	"auto-clipper/internal/project"
 	"auto-clipper/internal/settings"
+	"auto-clipper/internal/video"
 
 	"github.com/rs/zerolog/log"
 	"github.com/wailsapp/wails/v2"
@@ -83,15 +85,17 @@ func main() {
 
 	// Repositories & services
 	projectRepo := project.NewRepository(db)
-	projectSvc := project.NewService(projectRepo)
+	videoRepo := video.NewRepository(db)
+	projectSvc := project.NewService(projectRepo, videoRepo)
 	clipRepo := clip.NewRepository(db)
 	clipSvc := clip.NewService(clipRepo)
 	assetRepo := asset.NewRepository(db)
 	settingsSvc := settings.NewService(db, cfg.Encryption.Key)
+	overlayRepo := overlay.NewRepository(db)
 
 	// App
 	app := NewApp(cfg)
-	app.wire(projectSvc, projectRepo, clipSvc, clipRepo, assetRepo, settingsSvc)
+	app.wire(projectSvc, projectRepo, videoRepo, clipSvc, clipRepo, assetRepo, settingsSvc, overlayRepo)
 
 	err = wails.Run(&options.App{
 		Title:  "Auto Clipper",

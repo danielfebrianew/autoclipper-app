@@ -1,14 +1,14 @@
-import { LightningIcon, ImageIcon, GearSixIcon, SparkleIcon, HardDrivesIcon } from '@phosphor-icons/react'
+import { LightningIcon, ImageIcon, GearSixIcon, SparkleIcon, HardDrivesIcon, FilmReelIcon } from '@phosphor-icons/react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
-import { setScreen, openOverlay } from '../store/slices/uiSlice'
+import { setScreen, openOverlay, openOverlayEditor } from '../store/slices/uiSlice'
 
-type Tab = 'workspace' | 'library' | 'gallery'
+type Tab = 'workspace' | 'library' | 'gallery' | 'overlay-editor'
 
 export default function Toolbar() {
   const dispatch = useAppDispatch()
   const screen = useAppSelector(s => s.ui.screen)
 
-  const active: Tab = (screen === 'workspace' || screen === 'library' || screen === 'gallery')
+  const active: Tab = (screen === 'workspace' || screen === 'library' || screen === 'gallery' || screen === 'overlay-editor')
     ? screen
     : 'workspace'
 
@@ -53,10 +53,11 @@ export default function Toolbar() {
           ['workspace', 'Workspace', LightningIcon],
           ['library',   'Library',   HardDrivesIcon],
           ['gallery',   'Gallery',   ImageIcon],
+          ['overlay-editor', 'Editor', FilmReelIcon],
         ] as const).map(([id, label, Icon]) => (
           <button
             key={id}
-            onClick={() => dispatch(setScreen(id))}
+            onClick={() => id === 'overlay-editor' ? dispatch(openOverlayEditor(null)) : dispatch(setScreen(id))}
             className={`chip ${active === id ? 'active' : ''}`}
             style={{ padding: '7px 13px', fontSize: 13, borderRadius: 999 }}
           >

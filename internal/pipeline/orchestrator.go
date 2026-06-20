@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"auto-clipper/internal/clip"
 	"auto-clipper/internal/config"
 	"auto-clipper/internal/project"
+	"auto-clipper/internal/video"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -24,12 +26,13 @@ type ProgressEvent struct {
 }
 
 type Orchestrator struct {
-	cfg       *config.Config
-	worker    *WorkerClient
-	projectSvc *project.Service
+	cfg         *config.Config
+	worker      *WorkerClient
+	projectSvc  *project.Service
 	projectRepo *project.Repository
-	clipRepo  *clip.Repository
-	wailsCtx  context.Context
+	videoRepo   *video.Repository
+	clipRepo    *clip.Repository
+	wailsCtx    context.Context
 }
 
 func NewOrchestrator(
@@ -37,6 +40,7 @@ func NewOrchestrator(
 	worker *WorkerClient,
 	projectSvc *project.Service,
 	projectRepo *project.Repository,
+	videoRepo *video.Repository,
 	clipRepo *clip.Repository,
 	wailsCtx context.Context,
 ) *Orchestrator {
@@ -45,6 +49,7 @@ func NewOrchestrator(
 		worker:      worker,
 		projectSvc:  projectSvc,
 		projectRepo: projectRepo,
+		videoRepo:   videoRepo,
 		clipRepo:    clipRepo,
 		wailsCtx:    wailsCtx,
 	}
@@ -79,15 +84,19 @@ func (o *Orchestrator) RunAnalyzeOnly(ctx context.Context, projectID, apiKey str
 	if err != nil {
 		return fail("load", err)
 	}
+	v, err := o.videoRepo.GetByID(p.SourceVideoID)
+	if err != nil {
+		return fail("load", err)
+	}
 
 	// If transcript is missing, fetch it now.
-	transcriptJSON := p.TranscriptJSON
+	transcriptJSON := v.TranscriptJSON
 	var txSegments []TranscriptSegment
 	if transcriptJSON == "" {
 		emit("transcript", 50, "Mengambil transkrip…")
 		o.projectRepo.UpdateStatus(projectID, "transcript")
 		txResp, err := o.worker.FetchTranscript(ctx, TranscriptRequest{
-			VideoID:  p.VideoID,
+			VideoID:  v.VideoID,
 			Language: o.cfg.Processing.TranscriptLanguage,
 		})
 		if err != nil {
@@ -96,7 +105,7 @@ func (o *Orchestrator) RunAnalyzeOnly(ctx context.Context, projectID, apiKey str
 		txSegments = txResp.Segments
 		txBytes, _ := json.Marshal(txSegments)
 		transcriptJSON = string(txBytes)
-		o.projectRepo.UpdateField(projectID, "transcript_json", transcriptJSON)
+		o.videoRepo.UpdateField(v.ID, "transcript_json", transcriptJSON)
 	} else {
 		if err := json.Unmarshal([]byte(transcriptJSON), &txSegments); err != nil {
 			return fail("transcript", fmt.Errorf("transcript_json corrupt: %w", err))
@@ -113,8 +122,8 @@ func (o *Orchestrator) RunAnalyzeOnly(ctx context.Context, projectID, apiKey str
 
 	// Heatmap (optional)
 	heatmapText := ""
-	if p.HeatmapJSON != "" {
-		entries, _ := ParseHeatmap(p.HeatmapJSON)
+	if v.HeatmapJSON != "" {
+		entries, _ := ParseHeatmap(v.HeatmapJSON)
 		heatmapText = FormatHeatmapForLLM(entries, o.cfg.Heatmap.PeakThreshold, o.cfg.Heatmap.HighThreshold)
 	}
 
@@ -124,9 +133,9 @@ func (o *Orchestrator) RunAnalyzeOnly(ctx context.Context, projectID, apiKey str
 	analyzeResp, err := o.worker.Analyze(ctx, AnalyzeRequest{
 		Transcript:           strings.Join(txLines, "\n"),
 		HeatmapText:          heatmapText,
-		Title:                p.Title,
-		Channel:              p.Channel,
-		Duration:             p.Duration,
+		Title:                v.Title,
+		Channel:              v.Channel,
+		Duration:             v.Duration,
 		APIKey:               apiKey,
 		Model:                o.cfg.Gemini.Model,
 		BaseURL:              o.cfg.Gemini.BaseURL,
@@ -135,7 +144,7 @@ func (o *Orchestrator) RunAnalyzeOnly(ctx context.Context, projectID, apiKey str
 		MaxDuration:          o.cfg.Processing.MaxDuration,
 		BufferSeconds:        o.cfg.Processing.BufferSeconds,
 		Snippets:             txSegments,
-		VideoDurationSeconds: p.Duration,
+		VideoDurationSeconds: v.Duration,
 		ExcludeClips:         excludeClips,
 	})
 	if err != nil {
@@ -231,7 +240,7 @@ func min(a, b int) int {
 	return b
 }
 
-func (o *Orchestrator) RunDownloadAndAnalyze(ctx context.Context, projectID, youtubeURL, apiKey string) error {
+func (o *Orchestrator) RunDownloadAndAnalyze(ctx context.Context, projectID, videoID, youtubeURL, apiKey string) error {
 	emit := func(step string, pct float64, msg string) {
 		o.emit("download:progress", ProgressEvent{
 			ProjectID: projectID,
@@ -245,27 +254,31 @@ func (o *Orchestrator) RunDownloadAndAnalyze(ctx context.Context, projectID, you
 	fail := func(step string, err error) error {
 		o.emit("download:error", map[string]string{"project_id": projectID, "step": step, "error": err.Error()})
 		o.projectRepo.UpdateStatus(projectID, "error")
+		o.videoRepo.UpdateStatus(videoID, "error")
 		return err
 	}
 
 	// Step 1: metadata
 	emit("metadata", 5, "Fetching video metadata...")
 	o.projectRepo.UpdateStatus(projectID, "metadata")
+	o.videoRepo.UpdateStatus(videoID, "metadata")
 	meta, err := o.worker.FetchMetadata(ctx, MetadataRequest{URL: youtubeURL})
 	if err != nil {
 		return fail("metadata", err)
 	}
 
 	heatmapBytes, _ := json.Marshal(meta.HeatmapJSON)
-	o.projectRepo.UpdateField(projectID, "title", meta.Title)
-	o.projectRepo.UpdateField(projectID, "duration", meta.Duration)
-	o.projectRepo.UpdateField(projectID, "views", meta.Views)
-	o.projectRepo.UpdateField(projectID, "heatmap_json", string(heatmapBytes))
+	o.videoRepo.UpdateField(videoID, "title", meta.Title)
+	o.videoRepo.UpdateField(videoID, "channel", meta.Channel)
+	o.videoRepo.UpdateField(videoID, "duration", meta.Duration)
+	o.videoRepo.UpdateField(videoID, "views", meta.Views)
+	o.videoRepo.UpdateField(videoID, "heatmap_json", string(heatmapBytes))
 	emit("metadata", 15, fmt.Sprintf("Fetched: %s (%ds)", meta.Title, meta.Duration))
 
 	// Step 2: download (streaming progress)
 	emit("download", 20, "Mengunduh video…")
 	o.projectRepo.UpdateStatus(projectID, "downloading")
+	o.videoRepo.UpdateStatus(videoID, "downloading")
 	dlResp, err := o.worker.Download(ctx, DownloadRequest{
 		URL:     youtubeURL,
 		VideoID: meta.VideoID,
@@ -278,12 +291,16 @@ func (o *Orchestrator) RunDownloadAndAnalyze(ctx context.Context, projectID, you
 	if err != nil {
 		return fail("download", err)
 	}
-	o.projectRepo.UpdateField(projectID, "video_path", dlResp.VideoPath)
+	o.videoRepo.UpdateField(videoID, "video_path", dlResp.VideoPath)
+	if fi, statErr := os.Stat(dlResp.VideoPath); statErr == nil {
+		o.videoRepo.UpdateField(videoID, "source_bytes", fi.Size())
+	}
 	emit("download", 45, "Download selesai")
 
 	// Step 3: transcript
 	emit("transcript", 50, "Fetching transcript...")
 	o.projectRepo.UpdateStatus(projectID, "transcript")
+	o.videoRepo.UpdateStatus(videoID, "transcript")
 	txResp, err := o.worker.FetchTranscript(ctx, TranscriptRequest{
 		VideoID:  meta.VideoID,
 		Language: o.cfg.Processing.TranscriptLanguage,
@@ -292,7 +309,8 @@ func (o *Orchestrator) RunDownloadAndAnalyze(ctx context.Context, projectID, you
 		return fail("transcript", err)
 	}
 	txBytes, _ := json.Marshal(txResp.Segments)
-	o.projectRepo.UpdateField(projectID, "transcript_json", string(txBytes))
+	o.videoRepo.UpdateField(videoID, "transcript_json", string(txBytes))
+	o.videoRepo.UpdateStatus(videoID, "ready")
 	emit("transcript", 60, fmt.Sprintf("Transcript: %d segments", len(txResp.Segments)))
 
 	// Step 4: heatmap analysis (local)

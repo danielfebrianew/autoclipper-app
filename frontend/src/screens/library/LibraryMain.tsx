@@ -3,14 +3,15 @@ import toast from 'react-hot-toast'
 import { MagnifyingGlassIcon, CaretDownIcon, TrashIcon, HardDrivesIcon } from '@phosphor-icons/react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import {
-  fetchLibrary, fetchStorage, deleteSourceVideo, deleteProject,
-  findMoreClips, redownloadSource, deleteAllSource,
-  hideVideo, restoreVideo,
+  fetchLibrary, fetchStorage, deleteSourceVideo,
+  redownloadSource, deleteAllSource,
+  hideVideo, restoreVideo, openDetail,
   type LibraryVideo,
 } from '../../store/slices/librarySlice'
 import { toastError, toastSuccess, errText } from '../../lib/toast'
 import Spinner from '../../components/primitives/Spinner'
 import LibraryCard from './LibraryCard'
+import LibraryDetail from './LibraryDetail'
 
 const UNDO_DURATION = 5000 // ms
 
@@ -48,24 +49,27 @@ function StorageBar({ storage }: { storage: { limit_gb: number; categories: { si
 
 export default function LibraryMain() {
   const dispatch = useAppDispatch()
-  const { list, loading, busyId, storage } = useAppSelector(s => s.library)
+  const { list, loading, busyId, storage, detailVideoId } = useAppSelector(s => s.library)
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<Sort>('newest')
   const [showSort, setShowSort] = useState(false)
   const [clearingAll, setClearingAll] = useState(false)
 
-  // Track pending delete timers so we can cancel on undo
-  // key = project_id, value = setTimeout handle
+  // Pending source-delete timers, keyed by video_id, so undo can cancel them.
   const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
   useEffect(() => {
     dispatch(fetchLibrary())
     dispatch(fetchStorage())
-    // Cleanup pending timers on unmount
     return () => {
       pendingDeletes.current.forEach(timer => clearTimeout(timer))
     }
   }, [])
+
+  // Detail view takes over the whole pane.
+  if (detailVideoId) {
+    return <LibraryDetail />
+  }
 
   const filtered = list.filter(v =>
     v.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -79,99 +83,61 @@ export default function LibraryMain() {
     return a.title.localeCompare(b.title)
   })
 
+  // Delete the source FILE (keeps DB rows). Optimistic hide + undo toast.
   async function handleDelete(video: LibraryVideo) {
-    // 1. Delete the source file from disk immediately
     try {
-      await dispatch(deleteSourceVideo(video.project_id)).unwrap()
+      await dispatch(deleteSourceVideo(video.video_id)).unwrap()
     } catch (e) {
       toastError(errText(e, 'Gagal menghapus file'))
       return
     }
+    dispatch(hideVideo(video.video_id))
 
-    // 2. Hide from UI immediately (optimistic)
-    dispatch(hideVideo(video.project_id))
-
-    // 3. Show undo toast — capture toastId so we can dismiss it on undo
-    const toastId = `del-${video.project_id}`
-
-    const scheduleCommit = () => {
-      const timer = setTimeout(async () => {
-        pendingDeletes.current.delete(video.project_id)
-        toast.dismiss(toastId)
-        // 4a. Toast expired → actually delete from DB
-        try {
-          await dispatch(deleteProject(video.project_id)).unwrap()
-          dispatch(fetchStorage())
-        } catch {
-          // DB delete failed silently — video already not visible in UI
-        }
-      }, UNDO_DURATION)
-      pendingDeletes.current.set(video.project_id, timer)
-    }
-
-    const handleUndo = () => {
-      // Cancel the pending DB delete
-      const timer = pendingDeletes.current.get(video.project_id)
-      if (timer) {
-        clearTimeout(timer)
-        pendingDeletes.current.delete(video.project_id)
-      }
+    const toastId = `del-${video.video_id}`
+    const timer = setTimeout(() => {
+      pendingDeletes.current.delete(video.video_id)
       toast.dismiss(toastId)
-      // Restore to UI
+      dispatch(fetchStorage())
+    }, UNDO_DURATION)
+    pendingDeletes.current.set(video.video_id, timer)
+
+    const handleUndo = async () => {
+      const t = pendingDeletes.current.get(video.video_id)
+      if (t) { clearTimeout(t); pendingDeletes.current.delete(video.video_id) }
+      toast.dismiss(toastId)
+      // Re-download the source to truly undo (file was removed from disk).
+      try { await dispatch(redownloadSource(video.video_id)).unwrap() } catch {}
       dispatch(restoreVideo(video))
     }
 
     toast.custom(
       (t) => (
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: '12px 16px',
-          borderRadius: 12,
-          background: 'rgba(20,16,32,0.95)',
-          color: 'rgba(255,255,255,0.93)',
-          border: '1px solid var(--color-border)',
-          fontSize: 13,
-          fontFamily: 'var(--font-ui)',
-          backdropFilter: 'blur(12px)',
-          boxShadow: '0 18px 50px rgba(0,0,0,0.55)',
-          maxWidth: 380,
-          opacity: t.visible ? 1 : 0,
-          transition: 'opacity .2s',
+          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12,
+          background: 'rgba(20,16,32,0.95)', color: 'rgba(255,255,255,0.93)',
+          border: '1px solid var(--color-border)', fontSize: 13, fontFamily: 'var(--font-ui)',
+          backdropFilter: 'blur(12px)', boxShadow: '0 18px 50px rgba(0,0,0,0.55)', maxWidth: 380,
+          opacity: t.visible ? 1 : 0, transition: 'opacity .2s',
         }}>
           <TrashIcon size={15} color="var(--color-muted)" />
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            Video dihapus.
+            File sumber dihapus.
           </span>
-          <button
-            onClick={handleUndo}
-            style={{
-              border: 'none', background: 'transparent', cursor: 'pointer',
-              color: 'var(--color-accent-hi)', fontSize: 13, fontWeight: 700,
-              fontFamily: 'var(--font-ui)', padding: '2px 4px', borderRadius: 4,
-              flexShrink: 0,
-            }}
-          >
+          <button onClick={handleUndo} style={{
+            border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--color-accent-hi)',
+            fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-ui)', padding: '2px 4px', borderRadius: 4, flexShrink: 0,
+          }}>
             Undo
           </button>
         </div>
       ),
       { id: toastId, duration: UNDO_DURATION, position: 'bottom-right' }
     )
-
-    scheduleCommit()
   }
 
-  async function handleFindMore(id: string) {
+  async function handleRedownload(videoId: string) {
     try {
-      await dispatch(findMoreClips(id)).unwrap()
-    } catch (e) {
-      toastError(errText(e, 'Gagal memulai pencarian klip'))
-    }
-  }
-
-  async function handleRedownload(id: string) {
-    try {
-      await dispatch(redownloadSource(id)).unwrap()
+      await dispatch(redownloadSource(videoId)).unwrap()
     } catch (e) {
       toastError(errText(e, 'Gagal memulai download ulang'))
     }
@@ -201,7 +167,6 @@ export default function LibraryMain() {
         height: 56, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10,
         padding: '0 20px', borderBottom: '1px solid var(--color-border-soft)',
       }}>
-        {/* Search */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 7,
           background: 'rgba(255,255,255,0.05)', border: '1px solid var(--color-border)',
@@ -214,36 +179,28 @@ export default function LibraryMain() {
             placeholder="Cari judul atau URL…"
             style={{
               border: 'none', background: 'transparent', outline: 'none',
-              fontSize: 13, color: 'var(--color-text)', width: '100%',
-              fontFamily: 'var(--font-ui)',
+              fontSize: 13, color: 'var(--color-text)', width: '100%', fontFamily: 'var(--font-ui)',
             }}
           />
         </div>
 
-        {/* Sort */}
         <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setShowSort(s => !s)}
-            className="btn-ghost"
-            style={{ padding: '7px 12px', borderRadius: 10, fontSize: 13, gap: 5 }}
-          >
+          <button onClick={() => setShowSort(s => !s)} className="btn-ghost" style={{ padding: '7px 12px', borderRadius: 10, fontSize: 13, gap: 5 }}>
             {SORT_LABELS[sort]} <CaretDownIcon size={12} />
           </button>
           {showSort && (
             <div style={{
               position: 'absolute', top: '100%', right: 0, marginTop: 6, zIndex: 30,
               background: 'var(--color-panel-strong)', border: '1px solid var(--color-border)',
-              borderRadius: 12, padding: 6, minWidth: 140,
-              boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
+              borderRadius: 12, padding: 6, minWidth: 140, boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
             }}>
               {(Object.keys(SORT_LABELS) as Sort[]).map(s => (
                 <button
                   key={s}
                   onClick={() => { setSort(s); setShowSort(false) }}
                   style={{
-                    display: 'block', width: '100%', textAlign: 'left',
-                    padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                    fontSize: 13, fontFamily: 'var(--font-ui)',
+                    display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px',
+                    borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-ui)',
                     background: sort === s ? 'var(--color-accent-soft)' : 'transparent',
                     color: sort === s ? 'var(--color-accent-hi)' : 'var(--color-text)',
                   }}
@@ -256,11 +213,7 @@ export default function LibraryMain() {
         </div>
 
         <div style={{ flex: 1 }} />
-
-        {/* Storage bar */}
         <StorageBar storage={storage} />
-
-        {/* Clear all source */}
         <button
           onClick={handleClearAll}
           disabled={clearingAll}
@@ -284,25 +237,21 @@ export default function LibraryMain() {
         {!loading && sorted.length === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 300, gap: 12, opacity: 0.55 }}>
             <HardDrivesIcon size={36} color="var(--color-faint)" weight="duotone" />
-            <span style={{ fontSize: 13.5, color: 'var(--color-faint)', textAlign: 'center', lineHeight: 1.5 }}>
-              {search ? 'Tidak ada video yang cocok.' : 'Belum ada video yang didownload.\nTambah project di tab Workspace.'}
+            <span style={{ fontSize: 13.5, color: 'var(--color-faint)', textAlign: 'center', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+              {search ? 'Tidak ada video yang cocok.' : 'Belum ada video yang didownload.\nMulai dari sebuah link di tab Workspace.'}
             </span>
           </div>
         )}
 
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-          gap: 16,
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
           {sorted.map(video => (
             <LibraryCard
-              key={video.project_id}
+              key={video.video_id}
               video={video}
-              busy={busyId === video.project_id}
-              onFindMore={() => handleFindMore(video.project_id)}
+              busy={busyId === video.video_id}
+              onOpen={() => dispatch(openDetail(video.video_id))}
               onDelete={() => handleDelete(video)}
-              onRedownload={() => handleRedownload(video.project_id)}
+              onRedownload={() => handleRedownload(video.video_id)}
             />
           ))}
         </div>

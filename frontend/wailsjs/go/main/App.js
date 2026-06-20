@@ -10,8 +10,20 @@ export function AddCustomClip(arg1, arg2, arg3) {
   return window['go']['main']['App']['AddCustomClip'](arg1, arg2, arg3);
 }
 
+export function AddOverlayClip(arg1) {
+  return window['go']['main']['App']['AddOverlayClip'](arg1);
+}
+
+export function AddOverlayImage(arg1) {
+  return window['go']['main']['App']['AddOverlayImage'](arg1);
+}
+
 export function CancelGeneration(arg1) {
   return window['go']['main']['App']['CancelGeneration'](arg1);
+}
+
+export function CancelOverlayRender(arg1) {
+  return window['go']['main']['App']['CancelOverlayRender'](arg1);
 }
 
 export function CheckDependencies() {
@@ -30,12 +42,32 @@ export function ConfigureWorker() {
   return window['go']['main']['App']['ConfigureWorker']();
 }
 
+export function CreateOverlayFromClip(arg1) {
+  return window['go']['main']['App']['CreateOverlayFromClip'](arg1);
+}
+
+export function CreateOverlayProject(arg1, arg2, arg3) {
+  return window['go']['main']['App']['CreateOverlayProject'](arg1, arg2, arg3);
+}
+
 export function DeleteAllSource() {
   return window['go']['main']['App']['DeleteAllSource']();
 }
 
 export function DeleteClips(arg1) {
   return window['go']['main']['App']['DeleteClips'](arg1);
+}
+
+export function DeleteOverlayCover(arg1) {
+  return window['go']['main']['App']['DeleteOverlayCover'](arg1);
+}
+
+export function DeleteOverlayImage(arg1) {
+  return window['go']['main']['App']['DeleteOverlayImage'](arg1);
+}
+
+export function DeleteOverlayProject(arg1) {
+  return window['go']['main']['App']['DeleteOverlayProject'](arg1);
 }
 
 export function DeleteProject(arg1) {
@@ -110,6 +142,10 @@ export function GetLicenseStatus() {
   return window['go']['main']['App']['GetLicenseStatus']();
 }
 
+export function GetOverlayProject(arg1) {
+  return window['go']['main']['App']['GetOverlayProject'](arg1);
+}
+
 export function GetProject(arg1) {
   return window['go']['main']['App']['GetProject'](arg1);
 }
@@ -154,8 +190,32 @@ export function ListLibraryVideos() {
   return window['go']['main']['App']['ListLibraryVideos']();
 }
 
+export function ListOverlayImages() {
+  return window['go']['main']['App']['ListOverlayImages']();
+}
+
+export function ListOverlayProjects() {
+  return window['go']['main']['App']['ListOverlayProjects']();
+}
+
 export function ListProjects() {
   return window['go']['main']['App']['ListProjects']();
+}
+
+export function ListVideos() {
+  return window['go']['main']['App']['ListVideos']();
+}
+
+export function GetVideo(arg1) {
+  return window['go']['main']['App']['GetVideo'](arg1);
+}
+
+export function ListProjectsByVideo(arg1) {
+  return window['go']['main']['App']['ListProjectsByVideo'](arg1);
+}
+
+export function MakeMoreClips(arg1) {
+  return window['go']['main']['App']['MakeMoreClips'](arg1);
 }
 
 export function OnFileDrop(arg1) {
@@ -164,6 +224,14 @@ export function OnFileDrop(arg1) {
 
 export function OpenFolder(arg1) {
   return window['go']['main']['App']['OpenFolder'](arg1);
+}
+
+export function PickOverlayClip() {
+  return window['go']['main']['App']['PickOverlayClip']();
+}
+
+export function PickOverlayImage() {
+  return window['go']['main']['App']['PickOverlayImage']();
 }
 
 export function PreviewReframe(arg1, arg2) {
@@ -184,6 +252,10 @@ export function RegenerateCaption(arg1) {
 
 export function RemoveClip(arg1) {
   return window['go']['main']['App']['RemoveClip'](arg1);
+}
+
+export function RenderOverlay(arg1) {
+  return window['go']['main']['App']['RenderOverlay'](arg1);
 }
 
 export function RetrackFaces(arg1) {
@@ -210,6 +282,10 @@ export function SaveCaption(arg1, arg2) {
   return window['go']['main']['App']['SaveCaption'](arg1, arg2);
 }
 
+export function SaveOverlayProject(arg1) {
+  return window['go']['main']['App']['SaveOverlayProject'](arg1);
+}
+
 export function SaveSettings(arg1) {
   return window['go']['main']['App']['SaveSettings'](arg1);
 }
@@ -232,6 +308,10 @@ export function SetClipTrackOpts(arg1, arg2) {
 
 export function SetClipTrackTemplate(arg1, arg2) {
   return window['go']['main']['App']['SetClipTrackTemplate'](arg1, arg2);
+}
+
+export function SetOverlayCover(arg1, arg2) {
+  return window['go']['main']['App']['SetOverlayCover'](arg1, arg2);
 }
 
 export function StartDownload(arg1) {

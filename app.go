@@ -18,10 +18,12 @@ import (
 	"auto-clipper/internal/clip"
 	"auto-clipper/internal/config"
 	"auto-clipper/internal/license"
+	"auto-clipper/internal/overlay"
 	"auto-clipper/internal/pipeline"
 	"auto-clipper/internal/project"
 	"auto-clipper/internal/settings"
 	"auto-clipper/internal/setup"
+	"auto-clipper/internal/video"
 
 	"github.com/rs/zerolog/log"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -32,6 +34,7 @@ type App struct {
 	cfg          *config.Config
 	projectSvc   *project.Service
 	projectRepo  *project.Repository
+	videoRepo    *video.Repository
 	clipSvc      *clip.Service
 	clipRepo     *clip.Repository
 	assetRepo    *asset.Repository
@@ -39,6 +42,8 @@ type App struct {
 	worker       *pipeline.WorkerClient
 	orchestrator *pipeline.Orchestrator
 	generator    *pipeline.Generator
+	overlayRepo  *overlay.Repository
+	overlayGen   *overlay.Generator
 }
 
 func NewApp(cfg *config.Config) *App {
@@ -52,24 +57,29 @@ func (a *App) startup(ctx context.Context) {
 func (a *App) wire(
 	projectSvc *project.Service,
 	projectRepo *project.Repository,
+	videoRepo *video.Repository,
 	clipSvc *clip.Service,
 	clipRepo *clip.Repository,
 	assetRepo *asset.Repository,
 	settingsSvc *settings.Service,
+	overlayRepo *overlay.Repository,
 ) {
 	a.projectSvc = projectSvc
 	a.projectRepo = projectRepo
+	a.videoRepo = videoRepo
 	a.clipSvc = clipSvc
 	a.clipRepo = clipRepo
 	a.assetRepo = assetRepo
 	a.settingsSvc = settingsSvc
+	a.overlayRepo = overlayRepo
 	a.worker = pipeline.NewWorkerClient(a.cfg.Worker.Host, a.cfg.Worker.Port)
 }
 
 func (a *App) initPipelines() {
 	a.orchestrator = pipeline.NewOrchestrator(
-		a.cfg, a.worker, a.projectSvc, a.projectRepo, a.clipRepo, a.ctx)
+		a.cfg, a.worker, a.projectSvc, a.projectRepo, a.videoRepo, a.clipRepo, a.ctx)
 	a.generator = pipeline.NewGenerator(a.cfg, a.worker, a.clipRepo, a.ctx)
+	a.overlayGen = overlay.NewGenerator(a.cfg, a.worker, a.overlayRepo, a.ctx)
 }
 
 // === Lifecycle / Setup ===
@@ -254,28 +264,43 @@ func analyzeKey(s *settings.Settings) string {
 	return s.GeminiAPIKey
 }
 
-func (a *App) StartDownload(url string) (string, error) {
+// StartDownloadResult tells the frontend whether a brand-new download started
+// or the video already exists (so it can route the user to the Library to make
+// a new clip set instead of re-downloading).
+type StartDownloadResult struct {
+	ProjectID   string `json:"project_id"`
+	VideoExists bool   `json:"video_exists"`
+	VideoID     string `json:"video_id"`
+	VideoTitle  string `json:"video_title"`
+}
+
+func (a *App) StartDownload(url string) (StartDownloadResult, error) {
 	s, err := a.settingsSvc.Get()
 	if err != nil {
-		return "", err
+		return StartDownloadResult{}, err
 	}
 	if analyzeKey(s) == "" {
-		return "", fmt.Errorf("API key belum diatur — buka Pengaturan → API Keys dan isi KIE.ai atau Gemini key")
+		return StartDownloadResult{}, fmt.Errorf("API key belum diatur — buka Pengaturan → API Keys dan isi KIE.ai atau Gemini key")
 	}
 
-	p, err := a.projectSvc.Create(url)
+	p, v, exists, err := a.projectSvc.Create(url)
 	if err != nil {
-		return "", err
+		return StartDownloadResult{}, err
+	}
+	if exists {
+		// Video already downloaded — don't re-run the pipeline. Caller shows a
+		// toast and sends the user to the Library to make a new clip set.
+		return StartDownloadResult{VideoExists: true, VideoID: v.ID, VideoTitle: v.Title}, nil
 	}
 
 	go func() {
 		ctx := context.Background()
-		if err := a.orchestrator.RunDownloadAndAnalyze(ctx, p.ID, url, analyzeKey(s)); err != nil {
+		if err := a.orchestrator.RunDownloadAndAnalyze(ctx, p.ID, v.ID, url, analyzeKey(s)); err != nil {
 			log.Error().Err(err).Str("project_id", p.ID).Msg("Download pipeline failed")
 		}
 	}()
 
-	return p.ID, nil
+	return StartDownloadResult{ProjectID: p.ID, VideoID: v.ID}, nil
 }
 
 func (a *App) ListProjects() ([]project.Project, error) {
@@ -284,6 +309,16 @@ func (a *App) ListProjects() ([]project.Project, error) {
 
 func (a *App) GetProject(id string) (*project.Project, error) {
 	return a.projectSvc.GetByID(id)
+}
+
+// videoForProject loads the source video backing a project. Most bindings need
+// source fields (path, transcript, title) which now live on the video.
+func (a *App) videoForProject(projectID string) (*video.Video, error) {
+	p, err := a.projectSvc.GetByID(projectID)
+	if err != nil {
+		return nil, err
+	}
+	return a.videoRepo.GetByID(p.SourceVideoID)
 }
 
 func (a *App) DeleteProject(id string) error {
@@ -295,13 +330,17 @@ func (a *App) RetryStep(projectID, step string) error {
 	if err != nil {
 		return err
 	}
+	v, err := a.videoRepo.GetByID(p.SourceVideoID)
+	if err != nil {
+		return err
+	}
 	s, err := a.settingsSvc.Get()
 	if err != nil {
 		return err
 	}
 	go func() {
 		ctx := context.Background()
-		a.orchestrator.RunDownloadAndAnalyze(ctx, p.ID, p.YoutubeURL, analyzeKey(s))
+		a.orchestrator.RunDownloadAndAnalyze(ctx, p.ID, v.ID, v.YoutubeURL, analyzeKey(s))
 	}()
 	return nil
 }
@@ -315,8 +354,10 @@ type ThreadStep struct {
 }
 
 type CommandResult struct {
-	Intent    string `json:"intent"`     // download|generate|unknown
-	ProjectID string `json:"project_id"`
+	Intent      string `json:"intent"` // download|generate|unknown
+	ProjectID   string `json:"project_id"`
+	VideoExists bool   `json:"video_exists"`
+	VideoID     string `json:"video_id"`
 }
 
 var ytURLPattern = regexp.MustCompile(`https?://(?:www\.)?(?:youtube\.com/watch\?|youtu\.be/)`)
@@ -337,11 +378,16 @@ func (a *App) RunCommand(projectID, text string) (CommandResult, error) {
 		if url == "" {
 			url = text
 		}
-		pid, err := a.StartDownload(url)
+		res, err := a.StartDownload(url)
 		if err != nil {
 			return CommandResult{Intent: "download"}, err
 		}
-		return CommandResult{Intent: "download", ProjectID: pid}, nil
+		return CommandResult{
+			Intent:      "download",
+			ProjectID:   res.ProjectID,
+			VideoExists: res.VideoExists,
+			VideoID:     res.VideoID,
+		}, nil
 	}
 
 	lower := strings.ToLower(text)
@@ -361,13 +407,17 @@ func (a *App) GetThread(projectID string) ([]ThreadStep, error) {
 	if err != nil {
 		return nil, err
 	}
+	v, err := a.videoRepo.GetByID(p.SourceVideoID)
+	if err != nil {
+		return nil, err
+	}
 
 	var steps []ThreadStep
 	steps = append(steps, ThreadStep{
 		Role: "system",
 		Kind: "info",
-		Text: fmt.Sprintf("Project: %s", p.Title),
-		Meta: map[string]any{"status": p.Status, "duration": p.Duration},
+		Text: fmt.Sprintf("Project: %s", v.Title),
+		Meta: map[string]any{"status": p.Status, "duration": v.Duration},
 		Time: p.CreatedAt.Format("15:04"),
 	})
 
@@ -412,14 +462,14 @@ type TranscriptSegment struct {
 }
 
 func (a *App) GetTranscriptRange(projectID string, startSec, endSec int) ([]TranscriptSegment, error) {
-	p, err := a.projectSvc.GetByID(projectID)
+	v, err := a.videoForProject(projectID)
 	if err != nil {
 		return nil, err
 	}
 
 	var allSegments []pipeline.TranscriptSegment
-	if p.TranscriptJSON != "" {
-		if err := json.Unmarshal([]byte(p.TranscriptJSON), &allSegments); err != nil {
+	if v.TranscriptJSON != "" {
+		if err := json.Unmarshal([]byte(v.TranscriptJSON), &allSegments); err != nil {
 			return nil, err
 		}
 	}
@@ -438,11 +488,11 @@ func (a *App) GetTranscriptRange(projectID string, startSec, endSec int) ([]Tran
 }
 
 func (a *App) GetVideoPath(projectID string) (string, error) {
-	p, err := a.projectSvc.GetByID(projectID)
+	v, err := a.videoForProject(projectID)
 	if err != nil {
 		return "", err
 	}
-	return p.VideoPath, nil
+	return v.VideoPath, nil
 }
 
 type FaceFrame struct {
@@ -498,13 +548,13 @@ func (a *App) GetClipWaveform(clipID string) ([]float64, error) {
 		}
 	}
 
-	p, err := a.projectSvc.GetByID(c.ProjectID)
+	v, err := a.videoForProject(c.ProjectID)
 	if err != nil {
 		return nil, err
 	}
 
 	resp, err := a.worker.Waveform(context.Background(), pipeline.WaveformRequest{
-		AudioPath: p.VideoPath,
+		AudioPath: v.VideoPath,
 		Start:     c.StartSeconds,
 		End:       c.EndSeconds,
 		Samples:   200,
@@ -539,7 +589,7 @@ func (a *App) GetClipThumbnails(clipID string, n int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	p, err := a.projectSvc.GetByID(c.ProjectID)
+	v, err := a.videoForProject(c.ProjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -548,7 +598,7 @@ func (a *App) GetClipThumbnails(clipID string, n int) ([]string, error) {
 	os.MkdirAll(outDir, 0755)
 
 	resp, err := a.worker.Thumbnails(context.Background(), pipeline.ThumbnailsRequest{
-		VideoPath: p.VideoPath,
+		VideoPath: v.VideoPath,
 		Start:     c.StartSeconds,
 		End:       c.EndSeconds,
 		Count:     n,
@@ -581,13 +631,13 @@ func (a *App) GetFaceTrack(clipID string) ([]FaceFrame, error) {
 	if err != nil {
 		return nil, err
 	}
-	p, err := a.projectSvc.GetByID(c.ProjectID)
+	v, err := a.videoForProject(c.ProjectID)
 	if err != nil {
 		return nil, err
 	}
 
 	resp, err := a.worker.Facetrack(context.Background(), pipeline.FacetrackRequest{
-		VideoPath: p.VideoPath,
+		VideoPath: v.VideoPath,
 		Start:     c.StartSeconds,
 		End:       c.EndSeconds,
 	})
@@ -704,7 +754,7 @@ func (a *App) RetrackFaces(clipID string) error {
 // === Generate / Export ===
 
 func (a *App) GenerateClips(projectID string, clipIDs []string) error {
-	p, err := a.projectSvc.GetByID(projectID)
+	v, err := a.videoForProject(projectID)
 	if err != nil {
 		return err
 	}
@@ -729,7 +779,7 @@ func (a *App) GenerateClips(projectID string, clipIDs []string) error {
 		}
 	}
 
-	go a.generator.GenerateAll(context.Background(), projectID, p.VideoPath, toGenerate)
+	go a.generator.GenerateAll(context.Background(), projectID, v.VideoPath, toGenerate)
 	return nil
 }
 
@@ -739,18 +789,18 @@ func (a *App) CancelGeneration(projectID string) error {
 
 // GeneratePreview renders fast draft clips (whisper tiny + static crop) for the given project.
 func (a *App) GeneratePreview(projectID string) error {
-	p, err := a.projectSvc.GetByID(projectID)
+	v, err := a.videoForProject(projectID)
 	if err != nil {
 		return err
 	}
-	if p.VideoPath == "" {
+	if v.VideoPath == "" {
 		return fmt.Errorf("video not downloaded yet")
 	}
 	allClips, err := a.clipSvc.GetByProject(projectID)
 	if err != nil {
 		return err
 	}
-	go a.generator.GeneratePreview(context.Background(), projectID, p.VideoPath, allClips)
+	go a.generator.GeneratePreview(context.Background(), projectID, v.VideoPath, allClips)
 	return nil
 }
 
@@ -798,11 +848,11 @@ func (a *App) RetryClip(clipID string) error {
 	if err != nil {
 		return err
 	}
-	p, err := a.projectSvc.GetByID(c.ProjectID)
+	v, err := a.videoForProject(c.ProjectID)
 	if err != nil {
 		return err
 	}
-	go a.generator.GenerateAll(context.Background(), p.ID, p.VideoPath, []clip.Clip{*c})
+	go a.generator.GenerateAll(context.Background(), c.ProjectID, v.VideoPath, []clip.Clip{*c})
 	return nil
 }
 
@@ -945,7 +995,7 @@ func (a *App) GetStorageBreakdown() (Storage, error) {
 		return Storage{}, err
 	}
 
-	projects, err := a.projectRepo.List()
+	videos, err := a.videoRepo.List()
 	if err != nil {
 		return Storage{}, err
 	}
@@ -953,31 +1003,35 @@ func (a *App) GetStorageBreakdown() (Storage, error) {
 	var sourceTotal, outputTotal, metaTotal int64
 	var perVideo []VideoUsage
 
-	for _, p := range projects {
-		clips, _ := a.clipRepo.GetByProject(p.ID)
-		var outputBytes int64
-		for _, c := range clips {
-			if c.FinalClipPath != "" {
-				fi, _ := os.Stat(c.FinalClipPath)
-				if fi != nil {
-					outputBytes += fi.Size()
+	for _, vid := range videos {
+		// Output clips: aggregate across every project derived from this video.
+		projects, _ := a.projectRepo.ListByVideo(vid.ID)
+		var outputBytes, clipCount int64
+		var metaBytes int64 = int64(len(vid.TranscriptJSON))
+		for _, p := range projects {
+			metaBytes += int64(len(p.GeminiJSON))
+			clips, _ := a.clipRepo.GetByProject(p.ID)
+			clipCount += int64(len(clips))
+			for _, c := range clips {
+				if c.FinalClipPath != "" {
+					fi, _ := os.Stat(c.FinalClipPath)
+					if fi != nil {
+						outputBytes += fi.Size()
+					}
 				}
 			}
 		}
 
-		// meta = transcript + gemini
-		metaBytes := int64(len(p.TranscriptJSON) + len(p.GeminiJSON))
-
-		sourceTotal += p.SourceBytes
+		sourceTotal += vid.SourceBytes
 		outputTotal += outputBytes
 		metaTotal += metaBytes
 
 		perVideo = append(perVideo, VideoUsage{
-			ProjectID:   p.ID,
-			Title:       p.Title,
-			Channel:     p.Channel,
-			Clips:       len(clips),
-			SourceBytes: p.SourceBytes,
+			ProjectID:   vid.ID,
+			Title:       vid.Title,
+			Channel:     vid.Channel,
+			Clips:       int(clipCount),
+			SourceBytes: vid.SourceBytes,
 			OutputBytes: outputBytes,
 			MetaBytes:   metaBytes,
 		})
@@ -1070,10 +1124,15 @@ func (a *App) DeleteVideos(projectIDs []string) error {
 			}
 			a.assetRepo.DeleteByClip(c.ID)
 		}
-		if p.VideoPath != "" {
-			os.Remove(p.VideoPath)
-		}
 		a.projectRepo.Delete(pid)
+
+		// If this was the video's last project, remove the source video too.
+		if siblings, _ := a.projectRepo.ListByVideo(p.SourceVideoID); len(siblings) == 0 {
+			if v, err := a.videoRepo.GetByID(p.SourceVideoID); err == nil && v.VideoPath != "" {
+				os.Remove(v.VideoPath)
+			}
+			a.videoRepo.Delete(p.SourceVideoID)
+		}
 	}
 	return nil
 }
@@ -1083,20 +1142,20 @@ func (a *App) ClearCache() (int64, error) {
 }
 
 func (a *App) DeleteAllSource() (int64, error) {
-	projects, err := a.projectRepo.List()
+	videos, err := a.videoRepo.List()
 	if err != nil {
 		return 0, err
 	}
 	var freed int64
-	for _, p := range projects {
-		if p.VideoPath != "" {
-			fi, _ := os.Stat(p.VideoPath)
+	for _, v := range videos {
+		if v.VideoPath != "" {
+			fi, _ := os.Stat(v.VideoPath)
 			if fi != nil {
 				freed += fi.Size()
 			}
-			os.Remove(p.VideoPath)
-			a.projectRepo.UpdateField(p.ID, "video_path", "")
-			a.projectRepo.UpdateField(p.ID, "source_bytes", 0)
+			os.Remove(v.VideoPath)
+			a.videoRepo.UpdateField(v.ID, "video_path", "")
+			a.videoRepo.UpdateField(v.ID, "source_bytes", 0)
 		}
 	}
 	return freed, nil
@@ -1105,40 +1164,60 @@ func (a *App) DeleteAllSource() (int64, error) {
 // === Library ===
 
 type LibraryVideo struct {
-	ProjectID   string `json:"project_id"`
-	Title       string `json:"title"`
-	YoutubeURL  string `json:"youtube_url"`
-	Duration    int    `json:"duration"`
-	SourceBytes int64  `json:"source_bytes"`
-	VideoPath   string `json:"video_path"`
-	FileExists  bool   `json:"file_exists"`
-	Status      string `json:"status"`
-	ThumbPath   string `json:"thumb_path"`
-	ClipCount   int    `json:"clip_count"`
-	CreatedAt   string `json:"created_at"`
+	VideoID      string `json:"video_id"`
+	Title        string `json:"title"`
+	YoutubeURL   string `json:"youtube_url"`
+	Duration     int    `json:"duration"`
+	SourceBytes  int64  `json:"source_bytes"`
+	VideoPath    string `json:"video_path"`
+	FileExists   bool   `json:"file_exists"`
+	Status       string `json:"status"`
+	ThumbPath    string `json:"thumb_path"`
+	ClipCount    int    `json:"clip_count"`
+	ProjectCount int    `json:"project_count"`
+	CreatedAt    string `json:"created_at"`
 }
 
 func (a *App) ListLibraryVideos() ([]LibraryVideo, error) {
-	projects, err := a.projectRepo.List()
+	videos, err := a.videoRepo.List()
 	if err != nil {
 		return nil, err
 	}
 
 	var result []LibraryVideo
-	for _, p := range projects {
-		if p.IsLocal {
+	for _, v := range videos {
+		if v.IsLocal {
 			continue
 		}
 
-		// Count clips
-		clips, _ := a.clipRepo.GetByProject(p.ID)
-		clipCount := len(clips)
+		// Aggregate clips + find a thumbnail across all projects of this video.
+		projects, _ := a.projectRepo.ListByVideo(v.ID)
+		clipCount := 0
+		thumbPath := ""
+		for _, p := range projects {
+			clips, _ := a.clipRepo.GetByProject(p.ID)
+			clipCount += len(clips)
+			if thumbPath == "" {
+				for _, c := range clips {
+					assets, _ := a.assetRepo.GetByClip(c.ID)
+					for _, asset := range assets {
+						if asset.Kind == "thumbnail" {
+							thumbPath = asset.Path
+							break
+						}
+					}
+					if thumbPath != "" {
+						break
+					}
+				}
+			}
+		}
 
 		// Check file exists live
 		fileExists := false
-		sourceBytes := p.SourceBytes
-		if p.VideoPath != "" {
-			fi, err := os.Stat(p.VideoPath)
+		sourceBytes := v.SourceBytes
+		if v.VideoPath != "" {
+			fi, err := os.Stat(v.VideoPath)
 			if err == nil {
 				fileExists = true
 				if sourceBytes == 0 {
@@ -1147,50 +1226,104 @@ func (a *App) ListLibraryVideos() ([]LibraryVideo, error) {
 			}
 		}
 
-		// First thumbnail asset for this project
-		thumbPath := ""
-		for _, c := range clips {
-			assets, _ := a.assetRepo.GetByClip(c.ID)
-			for _, asset := range assets {
-				if asset.Kind == "thumbnail" {
-					thumbPath = asset.Path
-					break
-				}
-			}
-			if thumbPath != "" {
-				break
-			}
-		}
-
 		result = append(result, LibraryVideo{
-			ProjectID:   p.ID,
-			Title:       p.Title,
-			YoutubeURL:  p.YoutubeURL,
-			Duration:    p.Duration,
-			SourceBytes: sourceBytes,
-			VideoPath:   p.VideoPath,
-			FileExists:  fileExists,
-			Status:      p.Status,
-			ThumbPath:   thumbPath,
-			ClipCount:   clipCount,
-			CreatedAt:   p.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			VideoID:      v.ID,
+			Title:        v.Title,
+			YoutubeURL:   v.YoutubeURL,
+			Duration:     v.Duration,
+			SourceBytes:  sourceBytes,
+			VideoPath:    v.VideoPath,
+			FileExists:   fileExists,
+			Status:       v.Status,
+			ThumbPath:    thumbPath,
+			ClipCount:    clipCount,
+			ProjectCount: len(projects),
+			CreatedAt:    v.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		})
 	}
 	return result, nil
 }
 
-func (a *App) DeleteSourceVideo(projectID string) error {
-	p, err := a.projectSvc.GetByID(projectID)
+// DeleteSourceVideo removes the on-disk source file for a video (keeps DB rows).
+func (a *App) DeleteSourceVideo(videoID string) error {
+	v, err := a.videoRepo.GetByID(videoID)
 	if err != nil {
 		return err
 	}
-	if p.VideoPath != "" {
-		os.Remove(p.VideoPath)
-		a.projectRepo.UpdateField(projectID, "video_path", "")
-		a.projectRepo.UpdateField(projectID, "source_bytes", 0)
+	if v.VideoPath != "" {
+		os.Remove(v.VideoPath)
+		a.videoRepo.UpdateField(videoID, "video_path", "")
+		a.videoRepo.UpdateField(videoID, "source_bytes", 0)
 	}
-	wailsruntime.EventsEmit(a.ctx, "library:source_deleted", map[string]string{"project_id": projectID})
+	wailsruntime.EventsEmit(a.ctx, "library:source_deleted", map[string]string{"video_id": videoID})
 	return nil
+}
+
+// === Video → Projects (Library detail) ===
+
+// ListVideos returns all downloaded source videos (for the Library grid).
+func (a *App) ListVideos() ([]video.Video, error) {
+	return a.videoRepo.List()
+}
+
+// GetVideo returns a single source video.
+func (a *App) GetVideo(videoID string) (*video.Video, error) {
+	return a.videoRepo.GetByID(videoID)
+}
+
+// ListProjectsByVideo returns all clip-set projects derived from a video.
+func (a *App) ListProjectsByVideo(videoID string) ([]project.Project, error) {
+	return a.projectSvc.ListByVideo(videoID)
+}
+
+// MakeMoreClips creates a NEW project for an already-downloaded video and runs
+// AI analysis on it, excluding moments already used by the video's other
+// projects. Returns the new project id. This replaces the old per-project
+// "find more clips" with a clean 1-video-many-projects flow.
+func (a *App) MakeMoreClips(videoID string) (string, error) {
+	v, err := a.videoRepo.GetByID(videoID)
+	if err != nil {
+		return "", err
+	}
+	if v.TranscriptJSON == "" && v.VideoID == "" {
+		return "", fmt.Errorf("tidak ada transkrip yang tersimpan untuk video ini")
+	}
+	s, err := a.settingsSvc.Get()
+	if err != nil {
+		return "", err
+	}
+	apiKey := analyzeKey(s)
+	if apiKey == "" {
+		return "", fmt.Errorf("API key belum diatur — buka Pengaturan → API Keys")
+	}
+
+	// Exclude moments already used across every existing project of this video.
+	siblings, _ := a.projectSvc.ListByVideo(videoID)
+	var excludeClips []pipeline.ExcludeClip
+	for _, sp := range siblings {
+		clips, _ := a.clipRepo.GetByProject(sp.ID)
+		for _, c := range clips {
+			excludeClips = append(excludeClips, pipeline.ExcludeClip{
+				StartSeconds: c.StartSeconds,
+				EndSeconds:   c.EndSeconds,
+				Summary:      c.Summary,
+			})
+		}
+	}
+
+	name := fmt.Sprintf("%s — set %d", v.Title, len(siblings)+1)
+	p, err := a.projectSvc.CreateForVideo(videoID, name)
+	if err != nil {
+		return "", err
+	}
+
+	go func() {
+		ctx := context.Background()
+		if err := a.orchestrator.RunAnalyzeOnly(ctx, p.ID, apiKey, excludeClips); err != nil {
+			log.Error().Err(err).Str("project_id", p.ID).Msg("MakeMoreClips failed")
+		}
+	}()
+	return p.ID, nil
 }
 
 func (a *App) FindMoreClips(projectID string) error {
@@ -1198,10 +1331,14 @@ func (a *App) FindMoreClips(projectID string) error {
 	if err != nil {
 		return err
 	}
+	v, err := a.videoRepo.GetByID(p.SourceVideoID)
+	if err != nil {
+		return err
+	}
 	if p.Status != "ready" && p.Status != "error" {
 		return fmt.Errorf("project sedang diproses, coba lagi setelah selesai")
 	}
-	if p.TranscriptJSON == "" && p.VideoID == "" {
+	if v.TranscriptJSON == "" && v.VideoID == "" {
 		return fmt.Errorf("tidak ada transkrip yang tersimpan untuk video ini")
 	}
 
@@ -1238,20 +1375,20 @@ func (a *App) FindMoreClips(projectID string) error {
 	return nil
 }
 
-func (a *App) RedownloadSource(projectID string) error {
-	p, err := a.projectSvc.GetByID(projectID)
+func (a *App) RedownloadSource(videoID string) error {
+	v, err := a.videoRepo.GetByID(videoID)
 	if err != nil {
 		return err
 	}
-	if p.YoutubeURL == "" {
-		return fmt.Errorf("project tidak punya YouTube URL")
+	if v.YoutubeURL == "" {
+		return fmt.Errorf("video tidak punya YouTube URL")
 	}
 
 	go func() {
 		ctx := context.Background()
 		emit := func(step string, pct float64, msg string) {
 			wailsruntime.EventsEmit(a.ctx, "download:progress", pipeline.ProgressEvent{
-				ProjectID: projectID,
+				ProjectID: videoID,
 				Step:      step,
 				Percent:   pct,
 				Message:   msg,
@@ -1259,11 +1396,11 @@ func (a *App) RedownloadSource(projectID string) error {
 		}
 
 		emit("download", 5, "Mengunduh ulang video…")
-		a.projectRepo.UpdateStatus(projectID, "downloading")
+		a.videoRepo.UpdateStatus(videoID, "downloading")
 
 		dlResp, err := a.worker.Download(ctx, pipeline.DownloadRequest{
-			URL:     p.YoutubeURL,
-			VideoID: p.VideoID,
+			URL:     v.YoutubeURL,
+			VideoID: v.VideoID,
 			OutDir:  filepath.Join(a.cfg.Paths.DataDir, "videos"),
 		}, func(pct float64, msg string) {
 			overall := 5 + pct*0.9
@@ -1271,19 +1408,19 @@ func (a *App) RedownloadSource(projectID string) error {
 		})
 		if err != nil {
 			wailsruntime.EventsEmit(a.ctx, "download:error", map[string]string{
-				"project_id": projectID, "step": "download", "error": err.Error(),
+				"video_id": videoID, "step": "download", "error": err.Error(),
 			})
-			a.projectRepo.UpdateStatus(projectID, "error")
+			a.videoRepo.UpdateStatus(videoID, "error")
 			return
 		}
 
-		a.projectRepo.UpdateField(projectID, "video_path", dlResp.VideoPath)
+		a.videoRepo.UpdateField(videoID, "video_path", dlResp.VideoPath)
 		fi, err := os.Stat(dlResp.VideoPath)
 		if err == nil {
-			a.projectRepo.UpdateField(projectID, "source_bytes", fi.Size())
+			a.videoRepo.UpdateField(videoID, "source_bytes", fi.Size())
 		}
-		a.projectRepo.UpdateStatus(projectID, "ready")
-		wailsruntime.EventsEmit(a.ctx, "download:complete", map[string]string{"project_id": projectID})
+		a.videoRepo.UpdateStatus(videoID, "ready")
+		wailsruntime.EventsEmit(a.ctx, "download:complete", map[string]string{"video_id": videoID})
 	}()
 
 	return nil
@@ -1314,14 +1451,14 @@ func (a *App) OnFileDrop(paths []string) {
 		if ext != ".mp4" && ext != ".mov" && ext != ".mkv" && ext != ".avi" {
 			continue
 		}
-		proj, err := a.projectSvc.CreateFromFile(p)
+		proj, vid, err := a.projectSvc.CreateFromFile(p)
 		if err != nil {
 			log.Error().Err(err).Str("path", p).Msg("File drop project creation failed")
 			continue
 		}
 		fi, _ := os.Stat(p)
 		if fi != nil {
-			a.projectRepo.UpdateField(proj.ID, "source_bytes", fi.Size())
+			a.videoRepo.UpdateField(vid.ID, "source_bytes", fi.Size())
 		}
 		wailsruntime.EventsEmit(a.ctx, "thread:step", ThreadStep{
 			Role: "system",

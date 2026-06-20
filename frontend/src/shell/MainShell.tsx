@@ -8,6 +8,7 @@ import EmptyColumn from '../screens/workspace/EmptyColumn'
 import WorkspaceMain from '../screens/workspace/WorkspaceMain'
 import EmptyState from '../screens/workspace/EmptyState'
 import LibraryMain from '../screens/library/LibraryMain'
+import OverlayEditorMain from '../screens/overlay/OverlayEditorMain'
 
 export default function MainShell() {
   const screen = useAppSelector(s => s.ui.screen)
@@ -16,6 +17,7 @@ export default function MainShell() {
 
   const isGallery = screen === 'gallery'
   const isLibrary = screen === 'library'
+  const isOverlay = screen === 'overlay-editor'
 
   return (
     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
@@ -25,7 +27,9 @@ export default function MainShell() {
       <Toolbar />
 
       <div style={{ flex: 1, display: 'flex', minHeight: 0, position: 'relative', zIndex: 2 }}>
-        {isLibrary ? (
+        {isOverlay ? (
+          <OverlayEditorMain />
+        ) : isLibrary ? (
           <LibraryMain />
         ) : (
           <>

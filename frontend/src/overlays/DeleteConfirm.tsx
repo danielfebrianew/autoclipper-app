@@ -80,7 +80,7 @@ export default function DeleteConfirm() {
             </div>
             <div style={{ fontSize: 13.5, color: 'var(--color-muted)', lineHeight: 1.6 }}>
               {isProjectMode ? (
-                <>"{targetProject?.title || targetProject?.video_id}" beserta semua klipnya akan dihapus permanen.</>
+                <>"{targetProject?.name || 'Project'}" beserta semua klipnya akan dihapus permanen.</>
               ) : targets.length === 1 ? (
                 <>"{targets[0]?.hook || `Klip ${targets[0]?.clip_index + 1}`}" ({fmtDur(targets[0]?.duration_seconds ?? 0)}) akan dihapus permanen.</>
               ) : (

@@ -1,15 +1,13 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import { ListProjects, GetProject, DeleteProject, StartDownload } from '../../../wailsjs/go/main/App'
 
+// Lean project shape (post video/project split). Source fields live on the video.
 export interface Project {
   id: string
-  youtube_url: string
-  video_id: string
-  title: string
-  duration: number
-  views: number
+  source_video_id: string
+  name: string
   status: string
-  video_path: string
+  gemini_json: string
   created_at: string
   updated_at: string
 }
@@ -54,7 +52,7 @@ const projectSlice = createSlice({
     builder
       .addCase(fetchProjects.pending, (state) => { state.loading = true })
       .addCase(fetchProjects.fulfilled, (state, action) => {
-        state.list = (action.payload as Project[]) ?? []
+        state.list = (action.payload as unknown as Project[]) ?? []
         state.loading = false
       })
       .addCase(fetchProjects.rejected, (state, action) => {
@@ -62,7 +60,7 @@ const projectSlice = createSlice({
         state.loading = false
       })
       .addCase(fetchProject.fulfilled, (state, action) => {
-        state.current = action.payload as Project
+        state.current = action.payload as unknown as Project
       })
       .addCase(deleteProject.fulfilled, (state, action) => {
         state.list = state.list.filter(p => p.id !== action.meta.arg)

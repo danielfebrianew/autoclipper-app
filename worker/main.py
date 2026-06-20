@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from routers import (
     download, metadata, transcript, analyze,
     cut, detect_faces, reframe, subtitle, whisper_align, composite,
-    waveform, thumbnails, facetrack, caption, configure,
+    waveform, thumbnails, facetrack, caption, configure, overlay,
 )
 
 
@@ -71,6 +71,7 @@ app.include_router(waveform.router)
 app.include_router(thumbnails.router)
 app.include_router(facetrack.router)
 app.include_router(caption.router)
+app.include_router(overlay.router)
 
 
 @app.get("/health")

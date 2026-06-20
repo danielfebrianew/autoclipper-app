@@ -6,24 +6,16 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// Project is a lean record: one analysis/clip-set derived from a source video.
+// Source fields (url, path, transcript, …) now live in the videos table.
 type Project struct {
-	ID             string    `db:"id"              json:"id"`
-	YoutubeURL     string    `db:"youtube_url"     json:"youtube_url"`
-	VideoID        string    `db:"video_id"        json:"video_id"`
-	Title          string    `db:"title"           json:"title"`
-	Duration       int       `db:"duration"        json:"duration"`
-	Views          int       `db:"views"           json:"views"`
-	Status         string    `db:"status"          json:"status"`
-	VideoPath      string    `db:"video_path"      json:"video_path"`
-	HeatmapJSON    string    `db:"heatmap_json"    json:"heatmap_json"`
-	TranscriptJSON string    `db:"transcript_json" json:"transcript_json"`
-	GeminiJSON     string    `db:"gemini_json"     json:"gemini_json"`
-	// Source tracking (migration 006)
-	SourceBytes int64  `db:"source_bytes" json:"source_bytes"`
-	Channel     string `db:"channel"      json:"channel"`
-	IsLocal     bool   `db:"is_local"     json:"is_local"`
-	CreatedAt   time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
+	ID            string    `db:"id"               json:"id"`
+	SourceVideoID string    `db:"source_video_id"  json:"source_video_id"`
+	Name          string    `db:"name"             json:"name"`
+	Status        string    `db:"status"           json:"status"`
+	GeminiJSON    string    `db:"gemini_json"      json:"gemini_json"`
+	CreatedAt     time.Time `db:"created_at"       json:"created_at"`
+	UpdatedAt     time.Time `db:"updated_at"       json:"updated_at"`
 }
 
 type Repository struct {
@@ -34,25 +26,19 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
+const projectCols = `
+	id, source_video_id,
+	COALESCE(name, '')        AS name,
+	status,
+	COALESCE(gemini_json, '') AS gemini_json,
+	created_at, updated_at`
+
 func (r *Repository) Create(p *Project) error {
 	_, err := r.db.NamedExec(`INSERT INTO projects
-		(id, youtube_url, video_id, title, duration, views, status, is_local)
-		VALUES (:id, :youtube_url, :video_id, :title, :duration, :views, :status, :is_local)`, p)
+		(id, source_video_id, name, status)
+		VALUES (:id, :source_video_id, :name, :status)`, p)
 	return err
 }
-
-// projectCols selects every column, coalescing nullable TEXT columns to ''
-// so scanning into the string fields of Project never fails on NULL rows
-// (e.g. a project that errored before video_path/transcript were written).
-const projectCols = `
-	id, youtube_url, video_id, title, duration, views, status,
-	COALESCE(video_path, '')      AS video_path,
-	COALESCE(heatmap_json, '')    AS heatmap_json,
-	COALESCE(transcript_json, '') AS transcript_json,
-	COALESCE(gemini_json, '')     AS gemini_json,
-	source_bytes,
-	COALESCE(channel, '')         AS channel,
-	is_local, created_at, updated_at`
 
 func (r *Repository) GetByID(id string) (*Project, error) {
 	var p Project
@@ -63,6 +49,14 @@ func (r *Repository) GetByID(id string) (*Project, error) {
 func (r *Repository) List() ([]Project, error) {
 	var projects []Project
 	err := r.db.Select(&projects, "SELECT "+projectCols+" FROM projects ORDER BY created_at DESC")
+	return projects, err
+}
+
+// ListByVideo returns all projects derived from a given source video.
+func (r *Repository) ListByVideo(videoID string) ([]Project, error) {
+	var projects []Project
+	err := r.db.Select(&projects,
+		"SELECT "+projectCols+" FROM projects WHERE source_video_id = ? ORDER BY created_at DESC", videoID)
 	return projects, err
 }
 

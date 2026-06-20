@@ -135,9 +135,10 @@ type GalleryItem struct {
 func (r *Repository) GetGallery() ([]GalleryItem, error) {
 	var items []GalleryItem
 	err := r.db.Select(&items, `
-		SELECT c.*, p.title AS source_title, p.youtube_url AS source_url
+		SELECT c.*, v.title AS source_title, v.youtube_url AS source_url
 		FROM clips c
 		JOIN projects p ON p.id = c.project_id
+		JOIN videos v ON v.id = p.source_video_id
 		WHERE c.status = 'done' AND c.final_clip_path != ''
 		ORDER BY p.created_at DESC, c.clip_index ASC`)
 	return items, err

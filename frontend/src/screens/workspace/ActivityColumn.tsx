@@ -6,9 +6,10 @@ import {
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { fetchProjects, startDownload } from '../../store/slices/projectSlice'
 import { fetchClips, generateClips } from '../../store/slices/clipSlice'
-import { setActiveProject, openOverlay, openDeleteProject } from '../../store/slices/uiSlice'
+import { fetchLibrary, openDetail } from '../../store/slices/librarySlice'
+import { setActiveProject, openOverlay, setScreen } from '../../store/slices/uiSlice'
 import Spinner from '../../components/primitives/Spinner'
-import { toastError, errText } from '../../lib/toast'
+import { toastError, toastInfo, errText } from '../../lib/toast'
 import { useSmoothValue } from '../../lib/useSmoothValue'
 
 /** Thin progress bar inside an active thread step, smoothly animated. */
@@ -196,7 +197,7 @@ function ProjectRow({
           color: isActive ? 'var(--color-text)' : 'var(--color-muted)',
           position: 'relative', zIndex: 1,
         }}>
-          {project.title || project.video_id}
+          {project.name || 'Project'}
         </span>
         {isRunning && (
           <span style={{ position: 'relative', zIndex: 1 }}>
@@ -241,10 +242,17 @@ export default function ActivityColumn() {
     }
     setAdding(true)
     try {
-      const projectId = await dispatch(startDownload(trimmed)).unwrap() as string
-      await dispatch(fetchProjects())
-      dispatch(setActiveProject(projectId))
-      setUrl(''); setShowInput(false)
+      const res = await dispatch(startDownload(trimmed)).unwrap() as { project_id: string; video_exists: boolean; video_id: string; video_title: string }
+      if (res.video_exists) {
+        toastInfo('Video ini sudah pernah didownload. Membuka Library…')
+        dispatch(fetchLibrary())
+        dispatch(setScreen('library'))
+        dispatch(openDetail(res.video_id))
+      } else {
+        await dispatch(fetchProjects())
+        dispatch(setActiveProject(res.project_id))
+      }
+      setUrl('')
     } catch (e) {
       toastError(errText(e, 'Gagal memulai download'))
     } finally {
@@ -261,76 +269,26 @@ export default function ActivityColumn() {
       width: 264, flexShrink: 0,
       borderRight: '1px solid var(--color-border-soft)',
       display: 'flex', flexDirection: 'column',
-      fontFamily: 'var(--font-ui)', overflowY: 'auto',
+      fontFamily: 'var(--font-ui)', minHeight: 0,
     }}>
 
-      {/* ── Project list ── */}
-      <div style={{ padding: '16px 12px 8px', borderBottom: '1px solid var(--color-border-soft)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-          <LightningIcon size={13} color="var(--color-faint)" />
-          <span style={{
-            fontSize: 10.5, fontWeight: 700, letterSpacing: 0.7,
-            textTransform: 'uppercase', color: 'var(--color-faint)', flex: 1,
-          }}>
-            Proyek
-          </span>
-          <button
-            onClick={() => setShowInput(s => !s)}
-            style={{
-              width: 22, height: 22, borderRadius: 7, cursor: 'pointer',
-              background: showInput ? 'var(--color-accent-soft)' : 'rgba(255,255,255,0.05)',
-              border: `1px solid ${showInput ? 'var(--color-accent-line)' : 'var(--color-border)'}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            {showInput
-              ? <XIcon size={11} color="var(--color-accent-hi)" />
-              : <PlusIcon size={11} color="var(--color-muted)" />}
-          </button>
-        </div>
-
-        {showInput && (
-          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-            <input
-              ref={inputRef}
-              value={url}
-              onChange={e => setUrl(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAdd()}
-              placeholder="youtube.com/watch?v=…"
-              className="field"
-              style={{ flex: 1, padding: '8px 10px', borderRadius: 9, fontSize: 12 }}
-            />
-            <button
-              onClick={handleAdd}
-              disabled={adding || !url.trim()}
-              className="btn-primary"
-              style={{ padding: '8px 10px', borderRadius: 9, fontSize: 12 }}
-            >
-              {adding ? <Spinner size={13} /> : <ArrowRightIcon size={13} weight="bold" />}
-            </button>
-          </div>
-        )}
-
-        {projects.map(p => {
-          const isActive = p.id === activeProjectId
-          const isRunning = ['metadata', 'downloading', 'transcript', 'analyzing'].includes(p.status)
-          return (
-            <ProjectRow
-              key={p.id}
-              project={p}
-              isActive={isActive}
-              isRunning={isRunning}
-              pdp={downloadProgress[p.id]}
-              onSelect={() => dispatch(setActiveProject(p.id))}
-              onDelete={() => dispatch(openDeleteProject(p.id))}
-            />
-          )
-        })}
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '18px 16px 14px', borderBottom: '1px solid var(--color-border-soft)' }}>
+        <span style={{
+          width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+          background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent-line)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <LightningIcon size={14} color="var(--color-accent-hi)" weight="fill" />
+        </span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {activeProject?.name || 'Aktivitas'}
+        </span>
       </div>
 
-      {/* ── Thread ── */}
+      {/* ── Thread (scrollable) ── */}
       {activeProject && (
-        <div style={{ padding: '14px 16px', flex: 1 }}>
+        <div style={{ padding: '14px 16px', flex: 1, overflowY: 'auto', minHeight: 0 }}>
           <div style={{
             fontSize: 10.5, fontWeight: 700, letterSpacing: 0.7,
             textTransform: 'uppercase', color: 'var(--color-faint)', marginBottom: 14,
@@ -417,6 +375,34 @@ export default function ActivityColumn() {
           )}
         </div>
       )}
+
+      {/* ── Paste input pinned at bottom ── */}
+      <div style={{ padding: 12, borderTop: '1px solid var(--color-border-soft)' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: 6, borderRadius: 12,
+          background: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)',
+        }}>
+          <input
+            ref={inputRef}
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            placeholder="Paste link untuk mulai…"
+            style={{
+              flex: 1, border: 'none', background: 'transparent', outline: 'none',
+              fontSize: 13, color: 'var(--color-text)', paddingLeft: 6, fontFamily: 'var(--font-ui)',
+            }}
+          />
+          <button
+            onClick={handleAdd}
+            disabled={adding || !url.trim()}
+            className="btn-primary"
+            style={{ width: 32, height: 32, borderRadius: 9, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          >
+            {adding ? <Spinner size={14} /> : <ArrowRightIcon size={15} weight="bold" />}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
-import { ExportIcon, TrashIcon, CheckIcon, PlayIcon } from '@phosphor-icons/react'
+import { ExportIcon, TrashIcon, CheckIcon, PlayIcon, FilmReelIcon } from '@phosphor-icons/react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { fetchGallery, toggleGalleryItem, selectAllGallery, clearGallerySelected, GalleryItem } from '../../store/slices/gallerySlice'
-import { openExport, openDelete, openPlay, setActiveProject, setScreen } from '../../store/slices/uiSlice'
+import { openExport, openDelete, openPlay, setActiveProject, setScreen, openOverlayEditor } from '../../store/slices/uiSlice'
+import { createOverlayFromClip } from '../../store/slices/overlaySlice'
+import { toastError, errText } from '../../lib/toast'
 import ViralChip from '../../components/primitives/ViralChip'
 import Spinner from '../../components/primitives/Spinner'
 
@@ -11,7 +13,7 @@ function fmtDur(s: number): string {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
-function GalleryCard({ item, selected, onToggle, onOpen }: { item: GalleryItem; selected: boolean; onToggle: () => void; onOpen: () => void }) {
+function GalleryCard({ item, selected, onToggle, onOpen, onEditOverlay }: { item: GalleryItem; selected: boolean; onToggle: () => void; onOpen: () => void; onEditOverlay: () => void }) {
   const w = '100%'
   return (
     <div style={{ cursor: 'pointer', fontFamily: 'var(--font-ui)' }} onClick={onOpen}>
@@ -65,6 +67,24 @@ function GalleryCard({ item, selected, onToggle, onOpen }: { item: GalleryItem; 
           >
             {selected && <CheckIcon size={13} color="#fff" weight="bold" />}
           </button>
+          {/* Edit overlay (tempel konteks) */}
+          {item.final_clip_path && (
+            <button
+              onClick={e => { e.stopPropagation(); onEditOverlay() }}
+              title="Edit overlay — tempel gambar/video konteks di bawah"
+              style={{
+                position: 'absolute', top: 8, left: 8,
+                height: 22, padding: '0 8px', borderRadius: 7,
+                display: 'flex', alignItems: 'center', gap: 4,
+                background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)',
+                border: '1px solid rgba(255,255,255,0.25)', cursor: 'pointer',
+                fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.92)',
+                fontFamily: 'var(--font-ui)',
+              }}
+            >
+              <FilmReelIcon size={12} weight="fill" /> Overlay
+            </button>
+          )}
         </div>
       </div>
       <div style={{ padding: '8px 4px 0' }}>
@@ -180,6 +200,14 @@ export default function GalleryMain() {
                   onOpen={() => {
                     if (item.final_clip_path) {
                       dispatch(openPlay({ path: item.final_clip_path, title: item.hook || 'Klip' }))
+                    }
+                  }}
+                  onEditOverlay={async () => {
+                    try {
+                      const proj: any = await dispatch(createOverlayFromClip(item.id)).unwrap()
+                      dispatch(openOverlayEditor(proj.id))
+                    } catch (e) {
+                      toastError(errText(e, 'Gagal membuka editor overlay'))
                     }
                   }}
                 />
