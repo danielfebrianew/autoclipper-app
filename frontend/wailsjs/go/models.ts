@@ -238,6 +238,8 @@ export namespace main {
 	export class CommandResult {
 	    intent: string;
 	    project_id: string;
+	    video_exists: boolean;
+	    video_id: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new CommandResult(source);
@@ -247,6 +249,8 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.intent = source["intent"];
 	        this.project_id = source["project_id"];
+	        this.video_exists = source["video_exists"];
+	        this.video_id = source["video_id"];
 	    }
 	}
 	export class FaceFrame {
@@ -399,7 +403,7 @@ export namespace main {
 		}
 	}
 	export class LibraryVideo {
-	    project_id: string;
+	    video_id: string;
 	    title: string;
 	    youtube_url: string;
 	    duration: number;
@@ -409,6 +413,7 @@ export namespace main {
 	    status: string;
 	    thumb_path: string;
 	    clip_count: number;
+	    project_count: number;
 	    created_at: string;
 	
 	    static createFrom(source: any = {}) {
@@ -417,7 +422,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.project_id = source["project_id"];
+	        this.video_id = source["video_id"];
 	        this.title = source["title"];
 	        this.youtube_url = source["youtube_url"];
 	        this.duration = source["duration"];
@@ -427,6 +432,7 @@ export namespace main {
 	        this.status = source["status"];
 	        this.thumb_path = source["thumb_path"];
 	        this.clip_count = source["clip_count"];
+	        this.project_count = source["project_count"];
 	        this.created_at = source["created_at"];
 	    }
 	}
@@ -478,6 +484,24 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.connected = source["connected"];
 	        this.message = source["message"];
+	    }
+	}
+	export class StartDownloadResult {
+	    project_id: string;
+	    video_exists: boolean;
+	    video_id: string;
+	    video_title: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new StartDownloadResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.project_id = source["project_id"];
+	        this.video_exists = source["video_exists"];
+	        this.video_id = source["video_id"];
+	        this.video_title = source["video_title"];
 	    }
 	}
 	export class VideoUsage {
@@ -791,19 +815,10 @@ export namespace project {
 	
 	export class Project {
 	    id: string;
-	    youtube_url: string;
-	    video_id: string;
-	    title: string;
-	    duration: number;
-	    views: number;
+	    source_video_id: string;
+	    name: string;
 	    status: string;
-	    video_path: string;
-	    heatmap_json: string;
-	    transcript_json: string;
 	    gemini_json: string;
-	    source_bytes: number;
-	    channel: string;
-	    is_local: boolean;
 	    // Go type: time
 	    created_at: any;
 	    // Go type: time
@@ -816,19 +831,10 @@ export namespace project {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
-	        this.youtube_url = source["youtube_url"];
-	        this.video_id = source["video_id"];
-	        this.title = source["title"];
-	        this.duration = source["duration"];
-	        this.views = source["views"];
+	        this.source_video_id = source["source_video_id"];
+	        this.name = source["name"];
 	        this.status = source["status"];
-	        this.video_path = source["video_path"];
-	        this.heatmap_json = source["heatmap_json"];
-	        this.transcript_json = source["transcript_json"];
 	        this.gemini_json = source["gemini_json"];
-	        this.source_bytes = source["source_bytes"];
-	        this.channel = source["channel"];
-	        this.is_local = source["is_local"];
 	        this.created_at = this.convertValues(source["created_at"], null);
 	        this.updated_at = this.convertValues(source["updated_at"], null);
 	    }
@@ -924,6 +930,71 @@ export namespace setup {
 	        this.status = source["status"];
 	        this.message = source["message"];
 	    }
+	}
+
+}
+
+export namespace video {
+	
+	export class Video {
+	    id: string;
+	    youtube_url: string;
+	    video_id: string;
+	    title: string;
+	    channel: string;
+	    duration: number;
+	    views: number;
+	    video_path: string;
+	    source_bytes: number;
+	    heatmap_json: string;
+	    transcript_json: string;
+	    is_local: boolean;
+	    status: string;
+	    // Go type: time
+	    created_at: any;
+	    // Go type: time
+	    updated_at: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new Video(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.youtube_url = source["youtube_url"];
+	        this.video_id = source["video_id"];
+	        this.title = source["title"];
+	        this.channel = source["channel"];
+	        this.duration = source["duration"];
+	        this.views = source["views"];
+	        this.video_path = source["video_path"];
+	        this.source_bytes = source["source_bytes"];
+	        this.heatmap_json = source["heatmap_json"];
+	        this.transcript_json = source["transcript_json"];
+	        this.is_local = source["is_local"];
+	        this.status = source["status"];
+	        this.created_at = this.convertValues(source["created_at"], null);
+	        this.updated_at = this.convertValues(source["updated_at"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
-import { SetClipCaptionStyle, SetClipCaptionOpts, SaveCaption, RegenerateCaption } from '../../../wailsjs/go/main/App'
+import { SetClipCaptionStyle, SetClipCaptionOpts, SaveCaption, RegenerateCaption, RegenerateSubtitle } from '../../../wailsjs/go/main/App'
 import { toastError, toastSuccess } from '../../lib/toast'
 
 const PRESETS = [
@@ -30,6 +30,7 @@ export default function CaptionTab({
   onPresetChange, onPositionChange, onSizeChange, onTextChange,
 }: Props) {
   const [regenerating, setRegenerating] = useState(false)
+  const [regenSubs, setRegenSubs] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function handlePreset(id: string) {
@@ -65,6 +66,25 @@ export default function CaptionTab({
       toastError(e?.message || 'Gagal regenerasi caption')
     } finally {
       setRegenerating(false)
+    }
+  }
+
+  // Regenerasi subtitle ber-timing (menit:detik per kata) dari transkrip audio
+  // lewat faster-whisper — TANPA LLM. Mengosongkan caption override agar subtitle
+  // otomatis yang dipakai saat render berikutnya.
+  async function handleRegenerateSubtitle() {
+    setRegenSubs(true)
+    try {
+      await RegenerateSubtitle(clipId)
+      if (text) {
+        onTextChange('')
+        SaveCaption(clipId, '').catch(() => {})
+      }
+      toastSuccess('Subtitle ber-timing dibuat ulang dari transkrip')
+    } catch (e: any) {
+      toastError(e?.message || 'Gagal regenerasi subtitle')
+    } finally {
+      setRegenSubs(false)
     }
   }
 
@@ -138,10 +158,30 @@ export default function CaptionTab({
         </div>
       </section>
 
-      {/* Subtitle override manual */}
+      {/* Subtitle ber-timing (per kata) dari transkrip */}
       <section>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <Label>Override subtitle (opsional)</Label>
+          <Label>Subtitle (ikut ucapan)</Label>
+          <button
+            onClick={handleRegenerateSubtitle}
+            disabled={regenSubs}
+            className="btn-ghost"
+            style={{ padding: '5px 10px', fontSize: 11.5, gap: 5, borderRadius: 8 }}
+          >
+            <ArrowsClockwiseIcon size={13} style={{ animation: regenSubs ? 'spin 0.8s linear infinite' : 'none' }} />
+            {regenSubs ? 'Memproses…' : 'Regenerasi subtitle'}
+          </button>
+        </div>
+        <p style={{ fontSize: 10.5, color: 'var(--color-faint)', lineHeight: 1.5, margin: 0 }}>
+          Bangun ulang subtitle ber-timing per kata (menit:detik) langsung dari audio
+          lewat faster-whisper — tanpa AI/Gemini. Mengganti caption manual di bawah jika ada.
+        </p>
+      </section>
+
+      {/* Caption manual (override seluruh subtitle dengan satu teks statis) */}
+      <section>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <Label>Caption manual (opsional)</Label>
           <button
             onClick={handleRegenerate}
             disabled={regenerating}
@@ -149,18 +189,18 @@ export default function CaptionTab({
             style={{ padding: '5px 10px', fontSize: 11.5, gap: 5, borderRadius: 8 }}
           >
             <ArrowsClockwiseIcon size={13} style={{ animation: regenerating ? 'spin 0.8s linear infinite' : 'none' }} />
-            {regenerating ? 'Memproses…' : 'Regenerasi'}
+            {regenerating ? 'Memproses…' : 'Buat dgn AI'}
           </button>
         </div>
         <p style={{ fontSize: 10.5, color: 'var(--color-faint)', lineHeight: 1.5, margin: '0 0 8px' }}>
-          Kosongkan untuk pakai subtitle otomatis dari transkrip (Whisper / YouTube).
-          Isi hanya jika ingin mengganti teks subtitle secara manual.
+          Kosongkan untuk pakai subtitle ber-timing di atas. Isi untuk menimpa seluruh
+          subtitle dengan satu teks statis sepanjang clip.
         </p>
         <textarea
           value={text}
           onChange={e => handleText(e.target.value)}
           rows={5}
-          placeholder="Kosong = subtitle dari transkrip otomatis…"
+          placeholder="Kosong = subtitle ber-timing dari transkrip…"
           style={{
             width: '100%', resize: 'vertical', borderRadius: 10, padding: '10px 12px',
             background: 'rgba(255,255,255,0.05)', border: '1px solid var(--color-border)',

@@ -738,6 +738,82 @@ func (a *App) RegenerateCaption(clipID string) (string, error) {
 	return resp.Caption, nil
 }
 
+// RegenerateSubtitle membangun ulang file subtitle .ass yang ber-timing per kata
+// (start/end menit:detik) untuk satu clip, MURNI dari transkrip audio lokal lewat
+// faster-whisper (lite) — TANPA prompt ke Gemini. Ini berbeda dari RegenerateCaption
+// yang membuat satu caption statis via LLM.
+//
+// Jalur: Cut (audio segmen clip) → WhisperAlign (word timestamps) → GenerateSubtitle
+// (words → ASS karaoke). Hanya subtitle_path yang di-update; clip final TIDAK
+// di-render ulang — render terbaru terjadi saat user generate/export berikutnya.
+func (a *App) RegenerateSubtitle(clipID string) (string, error) {
+	c, err := a.clipSvc.GetByID(clipID)
+	if err != nil {
+		return "", err
+	}
+	v, err := a.videoForProject(c.ProjectID)
+	if err != nil {
+		return "", err
+	}
+
+	outDir := filepath.Join(a.cfg.Paths.DataDir, "clips", clipID)
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		return "", err
+	}
+
+	// Reuse potongan clip yang sudah ada; kalau belum, cut dulu dari video sumber.
+	clipPath := c.RawClipPath
+	if clipPath == "" {
+		cutResp, err := a.worker.Cut(context.Background(), pipeline.CutRequest{
+			VideoPath: v.VideoPath,
+			ClipID:    clipID,
+			Start:     c.StartSeconds,
+			End:       c.EndSeconds,
+			OutDir:    outDir,
+		})
+		if err != nil {
+			return "", fmt.Errorf("cut: %w", err)
+		}
+		clipPath = cutResp.ClipPath
+	}
+
+	// Whisper "lite": pakai Preview.WhisperModel (mis. tiny) bila diset, fallback "tiny".
+	whisperModel := a.cfg.Preview.WhisperModel
+	if whisperModel == "" {
+		whisperModel = "tiny"
+	}
+	whisperResp, err := a.worker.WhisperAlign(context.Background(), pipeline.WhisperRequest{
+		AudioPath: clipPath,
+		Language:  a.cfg.Processing.TranscriptLanguage,
+		ModelSize: whisperModel,
+	})
+	if err != nil {
+		return "", fmt.Errorf("whisper: %w", err)
+	}
+
+	splitMode := c.TrackTemplate == "dual" || c.TrackTemplate == "dual_side"
+	subResp, err := a.worker.GenerateSubtitle(context.Background(), pipeline.SubtitleRequest{
+		Words:        whisperResp.Words,
+		Style:        c.CaptionStyle,
+		Position:     c.CaptionPosition,
+		Size:         c.CaptionSize,
+		// CaptionText sengaja dikosongkan: kita ingin subtitle ber-timing per kata,
+		// bukan satu blok caption statis.
+		ClipDuration: float64(c.EndSeconds - c.StartSeconds),
+		OutDir:       outDir,
+		ClipID:       clipID,
+		SplitMode:    splitMode,
+	})
+	if err != nil {
+		return "", fmt.Errorf("subtitle: %w", err)
+	}
+
+	if err := a.clipRepo.UpdateField(clipID, "subtitle_path", subResp.ASSPath); err != nil {
+		return "", err
+	}
+	return subResp.ASSPath, nil
+}
+
 func (a *App) SetClipTrackTemplate(clipID, templateID string) error {
 	return a.clipSvc.SetTrackTemplate(clipID, templateID)
 }

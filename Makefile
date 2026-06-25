@@ -1,4 +1,4 @@
-.PHONY: dev dev-bypass build-mac build-windows test test-go test-py worker keygen clean
+.PHONY: dev dev-bypass dev-all dev-bypass-all build-mac build-windows test test-go test-py worker stop keygen clean
 
 WAILS  := $(shell go env GOPATH)/bin/wails
 VENV   := autoclipper-service-venv
@@ -18,6 +18,32 @@ dev-bypass:
 
 worker:
 	cd worker && PYTHONDONTWRITEBYTECODE=1 ../$(PYTHON) -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+
+# Jalankan worker (uvicorn) + wails dev bersamaan dalam satu terminal.
+# `trap 'kill 0' INT TERM EXIT` + `wait` memastikan Ctrl-C mematikan KEDUA proses;
+# tanpa itu uvicorn yatim tetap nyangkut di port 8000.
+dev-all:
+	@trap 'kill 0' INT TERM EXIT; \
+	$(MAKE) worker & \
+	$(MAKE) dev & \
+	wait
+
+dev-bypass-all:
+	@trap 'kill 0' INT TERM EXIT; \
+	$(MAKE) worker & \
+	$(MAKE) dev-bypass & \
+	wait
+
+# Bunuh worker yang nyangkut di port 8000 (mis. sisa proses dari run sebelumnya).
+# `|| true` supaya tidak error kalau memang tidak ada yang jalan.
+stop:
+	@pids=$$(lsof -ti tcp:8000); \
+	if [ -n "$$pids" ]; then \
+		echo "Killing worker on :8000 (PID $$pids)"; \
+		kill $$pids; \
+	else \
+		echo "Tidak ada proses di port 8000."; \
+	fi
 
 keygen:
 	go run ./cmd/keygen $(ARGS)

@@ -128,6 +128,14 @@ export default function LibraryDetail() {
           <div style={{ width: 200, aspectRatio: '16/9', flexShrink: 0, borderRadius: 12, overflow: 'hidden', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {thumbSrc ? (
               <img src={thumbSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+            ) : video?.file_exists && video.video_path ? (
+              // No rendered-clip thumbnail yet → show a frame of the source video.
+              <video
+                src={`/media${video.video_path}#t=2`}
+                preload="metadata"
+                muted
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
             ) : (
               <FilmReelIcon size={30} color="var(--color-faint)" weight="duotone" />
             )}

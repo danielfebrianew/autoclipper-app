@@ -6,6 +6,7 @@ import {setup} from '../models';
 import {main} from '../models';
 import {project} from '../models';
 import {settings} from '../models';
+import {video} from '../models';
 
 export function ActivateLicense(arg1:string):Promise<void>;
 
@@ -93,6 +94,8 @@ export function GetThread(arg1:string):Promise<Array<main.ThreadStep>>;
 
 export function GetTranscriptRange(arg1:string,arg2:number,arg3:number):Promise<Array<main.TranscriptSegment>>;
 
+export function GetVideo(arg1:string):Promise<video.Video>;
+
 export function GetVideoPath(arg1:string):Promise<string>;
 
 export function IsLicenseValid():Promise<boolean>;
@@ -107,11 +110,9 @@ export function ListOverlayProjects():Promise<Array<overlay.Project>>;
 
 export function ListProjects():Promise<Array<project.Project>>;
 
-export function ListVideos():Promise<Array<any>>;
-
-export function GetVideo(arg1:string):Promise<any>;
-
 export function ListProjectsByVideo(arg1:string):Promise<Array<project.Project>>;
+
+export function ListVideos():Promise<Array<video.Video>>;
 
 export function MakeMoreClips(arg1:string):Promise<string>;
 
@@ -130,6 +131,10 @@ export function RedownloadDependency(arg1:string):Promise<void>;
 export function RedownloadSource(arg1:string):Promise<void>;
 
 export function RegenerateCaption(arg1:string):Promise<string>;
+
+export function RegenerateSubtitle(arg1:string):Promise<string>;
+
+export function RegenerateSubtitle(arg1:string):Promise<string>;
 
 export function RemoveClip(arg1:string):Promise<void>;
 
@@ -163,7 +168,7 @@ export function SetClipTrackTemplate(arg1:string,arg2:string):Promise<void>;
 
 export function SetOverlayCover(arg1:string,arg2:string):Promise<overlay.Project>;
 
-export function StartDownload(arg1:string):Promise<any>;
+export function StartDownload(arg1:string):Promise<main.StartDownloadResult>;
 
 export function TestProviderKey(arg1:string,arg2:string):Promise<main.ProviderStatus>;
 

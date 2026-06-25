@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   YoutubeLogoIcon, ScissorsIcon, SparkleIcon, ExportIcon, LightningIcon,
-  PlusIcon, ArrowRightIcon, CheckIcon, XIcon, WarningCircleIcon, TrashIcon,
+  ArrowRightIcon, CheckIcon, WarningCircleIcon,
 } from '@phosphor-icons/react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { fetchProjects, startDownload } from '../../store/slices/projectSlice'
-import { fetchClips, generateClips } from '../../store/slices/clipSlice'
+import { fetchClips } from '../../store/slices/clipSlice'
 import { fetchLibrary, openDetail } from '../../store/slices/librarySlice'
 import { setActiveProject, openOverlay, setScreen } from '../../store/slices/uiSlice'
 import Spinner from '../../components/primitives/Spinner'
@@ -34,18 +34,6 @@ function StepProgressBar({ percent }: { percent: number }) {
         {v.toFixed(0)}%
       </div>
     </>
-  )
-}
-
-/** Translucent fill behind a project row in the sidebar, smoothly animated. */
-function RowProgressFill({ percent }: { percent: number }) {
-  const v = useSmoothValue(percent)
-  return (
-    <div style={{
-      position: 'absolute', inset: 0, zIndex: 0,
-      background: 'rgba(123,97,255,0.08)',
-      width: `${v}%`, borderRadius: 10,
-    }} />
   )
 }
 
@@ -94,119 +82,6 @@ function getSteps(
       detail: s === 'analyzing' ? 'Menganalisis dengan AI…' : undefined,
     },
   ]
-}
-
-const REVEAL_WIDTH = 56   // lebar tombol Hapus yang ter-reveal
-const DRAG_THRESHOLD = 28 // px geseran minimum untuk snap "open"
-
-/** Satu baris proyek yang bisa di-swipe ke kiri untuk reveal tombol Hapus. */
-function ProjectRow({
-  project, isActive, isRunning, pdp, onSelect, onDelete,
-}: {
-  project: any
-  isActive: boolean
-  isRunning: boolean
-  pdp?: { percent: number }
-  onSelect: () => void
-  onDelete: () => void
-}) {
-  const [dx, setDx]       = useState(0)
-  const [dragging, setDragging] = useState(false)
-  const open = dx <= -DRAG_THRESHOLD
-  const moved = useRef(false)
-
-  function onMouseDown(e: React.MouseEvent) {
-    if (e.button !== 0) return
-    const startX = e.clientX
-    moved.current = false
-    setDragging(true)
-
-    const move = (ev: MouseEvent) => {
-      const next = Math.max(-REVEAL_WIDTH, Math.min(0, ev.clientX - startX))
-      if (Math.abs(ev.clientX - startX) > 3) moved.current = true
-      setDx(next)
-    }
-    const up = () => {
-      setDragging(false)
-      setDx(prev => (prev <= -DRAG_THRESHOLD ? -REVEAL_WIDTH : 0))
-      window.removeEventListener('mousemove', move)
-      window.removeEventListener('mouseup', up)
-    }
-    window.addEventListener('mousemove', move)
-    window.addEventListener('mouseup', up)
-  }
-
-  // tutup saat klik di luar baris yang sedang terbuka
-  const rowRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (dx === 0) return
-    const onDocDown = (ev: MouseEvent) => {
-      if (rowRef.current && !rowRef.current.contains(ev.target as Node)) setDx(0)
-    }
-    window.addEventListener('mousedown', onDocDown)
-    return () => window.removeEventListener('mousedown', onDocDown)
-  }, [dx])
-
-  return (
-    <div
-      ref={rowRef}
-      style={{ position: 'relative', overflow: 'hidden', borderRadius: 10, marginBottom: 2 }}
-    >
-      {/* layer belakang: tombol Hapus */}
-      <button
-        onClick={() => { setDx(0); onDelete() }}
-        title="Hapus proyek"
-        style={{
-          position: 'absolute', top: 0, right: 0, bottom: 0, width: REVEAL_WIDTH,
-          border: 'none', cursor: 'pointer', borderRadius: 10,
-          background: 'rgba(255,107,102,0.15)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: dx < 0 ? 1 : 0, transition: dragging ? 'none' : 'opacity .18s',
-        }}
-      >
-        <TrashIcon size={16} color="var(--color-bad)" weight="bold" />
-      </button>
-
-      {/* layer depan: baris yang bergeser */}
-      <button
-        onMouseDown={onMouseDown}
-        onClick={() => { if (!moved.current && dx === 0) onSelect() }}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 9,
-          padding: '9px 10px', borderRadius: 10, width: '100%',
-          border: 'none', cursor: 'pointer', textAlign: 'left',
-          background: isActive ? 'var(--color-accent-soft)' : 'var(--color-bg)',
-          position: 'relative', overflow: 'hidden',
-          transform: `translateX(${dx}px)`,
-          transition: dragging ? 'none' : 'transform .18s',
-        }}
-        onMouseEnter={e => { if (!isActive && dx === 0) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-        onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'var(--color-bg)' }}
-      >
-        {/* download progress fill behind the row */}
-        {isRunning && pdp?.percent != null && (
-          <RowProgressFill percent={pdp.percent} />
-        )}
-        <YoutubeLogoIcon
-          size={14} weight="fill" style={{ position: 'relative', zIndex: 1 }}
-          color={isActive ? 'var(--color-accent-hi)' : 'var(--color-muted)'}
-        />
-        <span style={{
-          fontSize: 12.5, fontWeight: 500, flex: 1,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          color: isActive ? 'var(--color-text)' : 'var(--color-muted)',
-          position: 'relative', zIndex: 1,
-        }}>
-          {project.name || 'Project'}
-        </span>
-        {isRunning && (
-          <span style={{ position: 'relative', zIndex: 1 }}>
-            <Spinner size={11} color="var(--color-accent-hi)" />
-          </span>
-        )}
-      </button>
-    </div>
-  )
 }
 
 export default function ActivityColumn() {

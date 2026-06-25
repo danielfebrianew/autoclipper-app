@@ -57,6 +57,14 @@ export default function LibraryCard({ video, busy, onOpen, onDelete, onRedownloa
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
+        ) : video.file_exists && video.video_path ? (
+          // No rendered-clip thumbnail yet → show a frame of the source video.
+          <video
+            src={`/media${video.video_path}#t=2`}
+            preload="metadata"
+            muted
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
         ) : (
           <SparkleIcon size={28} color="var(--color-faint)" weight="duotone" />
         )}

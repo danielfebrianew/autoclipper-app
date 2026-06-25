@@ -174,6 +174,10 @@ export function GetTranscriptRange(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetTranscriptRange'](arg1, arg2, arg3);
 }
 
+export function GetVideo(arg1) {
+  return window['go']['main']['App']['GetVideo'](arg1);
+}
+
 export function GetVideoPath(arg1) {
   return window['go']['main']['App']['GetVideoPath'](arg1);
 }
@@ -202,16 +206,12 @@ export function ListProjects() {
   return window['go']['main']['App']['ListProjects']();
 }
 
-export function ListVideos() {
-  return window['go']['main']['App']['ListVideos']();
-}
-
-export function GetVideo(arg1) {
-  return window['go']['main']['App']['GetVideo'](arg1);
-}
-
 export function ListProjectsByVideo(arg1) {
   return window['go']['main']['App']['ListProjectsByVideo'](arg1);
+}
+
+export function ListVideos() {
+  return window['go']['main']['App']['ListVideos']();
 }
 
 export function MakeMoreClips(arg1) {
@@ -248,6 +248,14 @@ export function RedownloadSource(arg1) {
 
 export function RegenerateCaption(arg1) {
   return window['go']['main']['App']['RegenerateCaption'](arg1);
+}
+
+export function RegenerateSubtitle(arg1) {
+  return window['go']['main']['App']['RegenerateSubtitle'](arg1);
+}
+
+export function RegenerateSubtitle(arg1) {
+  return window['go']['main']['App']['RegenerateSubtitle'](arg1);
 }
 
 export function RemoveClip(arg1) {
