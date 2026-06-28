@@ -14,6 +14,7 @@ import EditTab from './preview/EditTab'
 import CaptionTab from './preview/CaptionTab'
 import TrackTab from './preview/TrackTab'
 import { computeZones, facesAt, FaceSample } from './preview/cropMath'
+import { cn } from '../lib/cn'
 
 type Tab = 'edit' | 'subtitle' | 'track'
 
@@ -86,9 +87,6 @@ export default function PreviewPlayer() {
     setCaptionPreset(clip.caption_style || 'bold')
     setCaptionPosition(clip.caption_position || 'bot')
     setCaptionSize(clip.caption_size || 'M')
-    // caption_text = override subtitle manual (eksplisit). Subtitle default selalu
-    // dari transcript (Whisper/YT), jadi JANGAN prefill dari suggested_caption
-    // (itu teks promosi sosmed, bukan subtitle yang di-burn).
     setCaptionText(clip.caption_text || '')
     setTrackTemplate(clip.track_template || 'single')
     setTrackSmooth(clip.track_smooth ?? true)
@@ -101,13 +99,12 @@ export default function PreviewPlayer() {
     GetVideoPath(clip.project_id).then(path => {
       if (path) {
         setVideoSrc(`/media${path}`)
-        setVideoDiskPath(path)  // path absolut disk untuk decoder native (/preview/frame)
+        setVideoDiskPath(path)
       }
     }).catch(() => {})
   }, [clip?.project_id])
 
   function loadFaceData(clipId: string) {
-    // Tier 1: primary face track (normalized 0-1, source-video absolute time via time field)
     GetFaceTrack(clipId).then(frames => {
       if (!frames?.length) return
       const samples: FaceSample[] = frames.map((f: any) => ({
@@ -117,12 +114,10 @@ export default function PreviewPlayer() {
       setFaceSamplesTier1(samples)
     }).catch(() => {})
 
-    // Tier 2: multi-face stored data (pixel coords, clip-relative time)
     GetClipFaces(clipId).then((entries: any[]) => {
       if (!entries?.length) return
-      // Pixel coords are normalized by sourceDims at compute time — store raw here, normalize in useMemo
       setFaceSamplesTier2(entries.map((e: any) => ({
-        time: e.time,  // clip-relative seconds
+        time: e.time,
         faces: e.faces ?? [],
       })))
     }).catch(() => {})
@@ -135,7 +130,6 @@ export default function PreviewPlayer() {
     loadFaceData(clip.id)
   }, [clip?.id])
 
-  // Timestamped transcript (YT transcript API / Whisper) for the clip range
   useEffect(() => {
     if (!clip?.project_id) return
     GetTranscriptRange(clip.project_id, Math.floor(clip.start_seconds), Math.ceil(clip.end_seconds))
@@ -143,22 +137,19 @@ export default function PreviewPlayer() {
       .catch(() => setTranscript([]))
   }, [clip?.project_id, clip?.start_seconds, clip?.end_seconds])
 
-  // Segment spoken at the current playback time (source-absolute seconds)
   const activeTranscript = useMemo(() => {
     const seg = transcript.find(s => currentTime >= s.start && currentTime <= s.end)
     return seg?.text?.trim() ?? ''
   }, [transcript, currentTime])
 
-  // Re-normalize tier2 when sourceDims are known
   const faceSamples = useMemo<FaceSample[]>(() => {
     const isDualTemplate = trackTemplate === 'dual' || trackTemplate === 'dual_side'
     const tier2HasMultiFace = faceSamplesTier2.some(s => s.faces.length >= 2)
 
-    // Prefer Tier 2 for dual templates if we have multi-face data
     if (isDualTemplate && tier2HasMultiFace && faceSamplesTier2.length > 0) {
       const { w, h } = sourceDims
       return faceSamplesTier2.map(s => ({
-        time: s.time + (clip?.start_seconds ?? 0),  // convert clip-relative to source-absolute
+        time: s.time + (clip?.start_seconds ?? 0),
         faces: (s.faces as any[]).map(f => ({
           x: f.x / w, y: f.y / h, w: f.w / w, h: f.h / h,
         })),
@@ -169,8 +160,6 @@ export default function PreviewPlayer() {
 
   const sourceAspect = sourceDims.w / sourceDims.h
 
-  // Label rasio source yang sebenarnya (mis. "16:9", "2.06:1") — JANGAN hardcode,
-  // video sumber bisa 2220×1080 dll. Aspect yang salah bikin crop box meleset.
   const sourceRatioLabel = useMemo(() => {
     const a = sourceAspect
     if (Math.abs(a - 16 / 9) < 0.02) return '16:9'
@@ -180,7 +169,6 @@ export default function PreviewPlayer() {
     return `${a.toFixed(2)}:1`
   }, [sourceAspect])
 
-  // Compute zones from current state
   const zones = useMemo(() => {
     const faces = facesAt(faceSamples, currentTime)
     return computeZones(trackTemplate, ratio, faces, sourceAspect)
@@ -237,53 +225,33 @@ export default function PreviewPlayer() {
     <div
       tabIndex={-1}
       onKeyDown={handleKeyDown}
-      style={{
-        position: 'absolute', inset: 0, zIndex: 50,
-        background: 'rgba(8,6,13,0.97)', backdropFilter: 'blur(18px)',
-        display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-ui)',
-        outline: 'none',
-      }}
+      className="absolute inset-0 z-50 bg-[rgba(8,6,13,0.97)] backdrop-blur-[18px] flex flex-col font-ui outline-none"
     >
       {/* Header */}
-      <div style={{
-        height: 56, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12,
-        padding: '0 16px', borderBottom: '1px solid var(--color-border-soft)',
-      }}>
-        <button onClick={handleClose} className="icon-btn" style={{ flexShrink: 0 }}>
+      <div className="h-14 shrink-0 flex items-center gap-3 px-4 border-b border-border-soft">
+        <button onClick={handleClose} className="icon-btn shrink-0">
           <XIcon size={17} color="var(--color-muted)" />
         </button>
 
-        <span style={{
-          fontSize: 13.5, fontWeight: 700, color: 'var(--color-text)',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 240,
-        }}>
+        <span className="text-[13.5px] font-bold text-text overflow-hidden text-ellipsis whitespace-nowrap max-w-60">
           {clip.hook || `Klip ${clip.clip_index + 1}`}
         </span>
+
         {clip.category && (
-          <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
-            textTransform: 'uppercase', color: 'var(--color-accent-hi)',
-            background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent-line)',
-            padding: '2px 7px', borderRadius: 5, flexShrink: 0,
-          }}>
+          <span className="font-mono text-[9px] font-bold tracking-[0.5px] uppercase text-accent-hi bg-accent-soft border border-accent-line px-1.75 py-0.5 rounded-[5px] shrink-0">
             {clip.category}
           </span>
         )}
+
         {clip.viral_score > 0 && (
-          <span style={{
-            display: 'flex', alignItems: 'center', gap: 4,
-            fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700,
-            color: 'var(--color-accent-hi)', background: 'var(--color-accent-soft)',
-            border: '1px solid var(--color-accent-line)',
-            padding: '3px 8px', borderRadius: 999, flexShrink: 0,
-          }}>
+          <span className="flex items-center gap-1 font-mono text-[11px] font-bold text-accent-hi bg-accent-soft border border-accent-line px-2 py-0.75 rounded-full shrink-0">
             ↗ {clip.viral_score}
           </span>
         )}
 
         {/* Center — tab switcher */}
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-          <div style={{ display: 'flex', gap: 3, padding: 4, borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)' }}>
+        <div className="flex-1 flex justify-center">
+          <div className="flex gap-0.75 p-1 rounded-xl bg-white/4 border border-border">
             {(Object.keys(TAB_LABELS) as Tab[]).map(t => {
               const Icon = TAB_ICONS[t]
               const active = previewTab === t
@@ -291,14 +259,12 @@ export default function PreviewPlayer() {
                 <button
                   key={t}
                   onClick={() => dispatch(setPreviewTab(t))}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '7px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                    fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-ui)',
-                    background: active ? 'var(--color-accent-soft)' : 'transparent',
-                    color: active ? 'var(--color-accent-hi)' : 'var(--color-muted)',
-                    transition: 'all .15s',
-                  }}
+                  className={cn(
+                    'flex items-center gap-1.5 px-4 py-1.75 rounded-lg border-none cursor-pointer text-[13px] font-semibold font-ui transition-all duration-150',
+                    active
+                      ? 'bg-accent-soft text-accent-hi'
+                      : 'bg-transparent text-muted',
+                  )}
                 >
                   <Icon size={14} weight={active ? 'fill' : 'regular'} />
                   {TAB_LABELS[t]}
@@ -310,8 +276,7 @@ export default function PreviewPlayer() {
 
         <button
           onClick={() => dispatch(openExport([clip.id]))}
-          className="btn-primary"
-          style={{ padding: '8px 16px', borderRadius: 10, fontSize: 13, gap: 7, flexShrink: 0 }}
+          className="btn-primary px-4 py-2 rounded-[10px] text-[13px] gap-1.75 shrink-0"
         >
           <ExportIcon size={15} weight="bold" />
           Export klip
@@ -319,43 +284,36 @@ export default function PreviewPlayer() {
       </div>
 
       {/* Body */}
-      <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
+      <div className="flex-1 flex min-h-0 overflow-hidden">
 
         {/* Stage area */}
-        <div style={{
-          flex: 1, minWidth: 0, display: 'flex', gap: 20,
-          padding: '16px 20px', alignItems: 'stretch',
-          overflow: 'hidden',
-        }}>
-          {/* Source stage column */}
-          <div style={{ flex: split ? '1 1 0' : '16 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="flex-1 min-w-0 flex gap-5 px-5 py-4 items-stretch overflow-hidden">
+
+          {/* Source stage column — dynamic flex based on split mode */}
+          <div className="min-w-0 flex flex-col gap-2" style={{ flex: split ? '1 1 0' : '16 1 0' }}>
             {/* Label row */}
-            <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-faint)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+            <div className="shrink-0 flex items-center justify-between">
+              <span className="font-mono text-[10px] text-faint tracking-[0.5px] uppercase">
                 SOURCE {sourceRatioLabel}&nbsp;
-                <span style={{ color: 'var(--color-muted)', textTransform: 'none' }}>
+                <span className="text-muted normal-case">
                   {clip.hook ? clip.hook.slice(0, 40) + (clip.hook.length > 40 ? '…' : '') : `Klip ${clip.clip_index + 1}`}
                 </span>
               </span>
               <button
                 onClick={() => setSplit(s => !s)}
-                className="btn-ghost"
-                style={{ padding: '3px 9px', borderRadius: 7, fontSize: 11, gap: 4 }}
+                className="btn-ghost px-2.25 py-0.75 rounded-[7px] text-[11px] gap-1"
               >
                 {split ? <ArrowsInIcon size={12} /> : <ArrowsOutIcon size={12} />}
                 {split ? 'Single' : 'Split view'}
               </button>
             </div>
 
-            {/* Stage wrapper — flex:1 gives definite height; box letterboxes inside */}
-            <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{
-                position: 'relative',
-                width: '100%', maxWidth: '100%', maxHeight: '100%',
-                // Aspect mengikuti source asli supaya video mengisi kotak tanpa
-                // letterbox, sehingga crop box overlay sejajar dengan frame video.
-                aspectRatio: `${sourceDims.w} / ${sourceDims.h}`, margin: 'auto',
-              }}>
+            {/* Stage wrapper */}
+            <div className="flex-1 min-h-0 flex items-center justify-center">
+              <div
+                className="relative w-full max-w-full max-h-full m-auto"
+                style={{ aspectRatio: `${sourceDims.w} / ${sourceDims.h}` }}
+              >
                 <SourceStage
                   ref={sourceRef}
                   src={videoSrc}
@@ -370,32 +328,27 @@ export default function PreviewPlayer() {
                   onLoadedMetadata={(w, h) => setSourceDims({ w, h })}
                 />
                 {/* Time badge */}
-                <span style={{
-                  position: 'absolute', bottom: 14, left: 14, zIndex: 10,
-                  fontFamily: 'var(--font-mono)', fontSize: 11, color: 'rgba(255,255,255,0.75)',
-                  background: 'rgba(0,0,0,0.5)', padding: '2px 7px', borderRadius: 6,
-                  pointerEvents: 'none',
-                }}>
+                <span className="absolute bottom-3.5 left-3.5 z-10 font-mono text-[11px] text-white/75 bg-black/50 px-1.75 py-0.5 rounded-md pointer-events-none">
                   {fmtTime(currentTime)}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Preview (output) stage column */}
-          <div style={{ flex: split ? '1 1 0' : previewFlex, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Preview (output) stage column — dynamic flex based on ratio */}
+          <div className="min-w-0 flex flex-col gap-2" style={{ flex: split ? '1 1 0' : previewFlex }}>
             {/* Label row */}
-            <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-faint)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+            <div className="shrink-0 flex items-center justify-between">
+              <span className="font-mono text-[10px] text-faint tracking-[0.5px] uppercase">
                 PREVIEW {ratio}
               </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: 'var(--color-accent-hi)' }}>
+              <span className="font-mono text-[11px] font-bold text-accent-hi">
                 {fmtTime(clipDuration)}
               </span>
             </div>
 
             {/* Stage wrapper */}
-            <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="flex-1 min-h-0 flex items-center justify-center">
               <OutputStage
                 src={videoSrc}
                 videoPath={videoDiskPath}
@@ -411,11 +364,8 @@ export default function PreviewPlayer() {
         </div>
 
         {/* Right panel */}
-        <div style={{
-          width: 290, flexShrink: 0, borderLeft: '1px solid var(--color-border-soft)',
-          display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        }}>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 14px' }}>
+        <div className="w-72.5 shrink-0 border-l border-border-soft flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto px-3.5 py-4">
             {previewTab === 'edit' && (
               <EditTab
                 clip={clip as any}
@@ -465,31 +415,22 @@ export default function PreviewPlayer() {
       </div>
 
       {/* Transport bar + Timeline */}
-      <div style={{ borderTop: '1px solid var(--color-border-soft)', background: 'rgba(0,0,0,0.25)', flexShrink: 0 }}>
-        {/* Transport row — play/pause above the timeline */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: '8px 16px 0',
-        }}>
+      <div className="border-t border-border-soft bg-black/25 shrink-0">
+        {/* Transport row */}
+        <div className="flex items-center gap-3 px-4 pt-2">
           <button
             onClick={() => sourceRef.current?.toggle()}
             title="Space"
-            style={{
-              width: 34, height: 34, borderRadius: '50%', border: 'none', cursor: 'pointer',
-              background: 'var(--color-accent)', flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 2px 12px rgba(123,97,255,0.4)',
-            }}
+            className="w-8.5 h-8.5 rounded-full border-none cursor-pointer bg-accent shrink-0 flex items-center justify-center shadow-[0_2px_12px_rgba(123,97,255,0.4)]"
           >
             {playing
               ? <PauseIcon size={16} weight="fill" color="#fff" />
               : <PlayIcon size={16} weight="fill" color="#fff" style={{ marginLeft: 1 }} />
             }
           </button>
-          <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-muted)',
-          }}>
-            {fmtTime(currentTime - clip.start_seconds)} <span style={{ color: 'var(--color-faint)' }}>/ {fmtTime(clipDuration)}</span>
+          <span className="font-mono text-[11px] text-muted">
+            {fmtTime(currentTime - clip.start_seconds)}{' '}
+            <span className="text-faint">/ {fmtTime(clipDuration)}</span>
           </span>
         </div>
         <Timeline

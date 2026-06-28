@@ -20,13 +20,13 @@ export default function MainShell() {
   const isOverlay = screen === 'overlay-editor'
 
   return (
-    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+    <div className="absolute inset-0 flex flex-col">
       <Glow x="20%" y="40%" size={460} color="rgba(123,97,255,0.10)" />
       <Glow x="86%" y="-4%" size={420} color="rgba(80,60,170,0.10)" />
 
       <Toolbar />
 
-      <div style={{ flex: 1, display: 'flex', minHeight: 0, position: 'relative', zIndex: 2 }}>
+      <div className="flex-1 flex min-h-0 relative z-2">
         {isOverlay ? (
           <OverlayEditorMain />
         ) : isLibrary ? (

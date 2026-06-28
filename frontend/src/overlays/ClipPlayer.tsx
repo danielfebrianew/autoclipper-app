@@ -12,25 +12,19 @@ export default function ClipPlayer() {
   if (!target) return null
 
   const src = `/media${target.path}`
-  // Folder induk untuk tombol "Buka folder".
   const folder = target.path.replace(/\/[^/]+$/, '')
 
   return (
     <div
-      style={{
-        position: 'absolute', inset: 0, zIndex: 50,
-        background: 'rgba(8,6,13,0.92)', backdropFilter: 'blur(16px)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'var(--font-ui)', gap: 16,
-      }}
+      className="absolute inset-0 z-50 bg-[rgba(8,6,13,0.92)] backdrop-blur-lg flex flex-col items-center justify-center font-ui gap-4"
       onClick={() => dispatch(closeOverlay())}
     >
       {/* Header */}
       <div
-        style={{ display: 'flex', alignItems: 'center', gap: 12, width: 'min(90vw, 420px)' }}
+        className="flex items-center gap-3 w-[min(90vw,420px)]"
         onClick={e => e.stopPropagation()}
       >
-        <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span className="flex-1 text-[14px] font-bold text-text overflow-hidden text-ellipsis whitespace-nowrap">
           {target.title || 'Klip'}
         </span>
         <button
@@ -50,16 +44,12 @@ export default function ClipPlayer() {
       </div>
 
       {/* Video */}
-      <div onClick={e => e.stopPropagation()} style={{ display: 'flex', justifyContent: 'center' }}>
+      <div className="flex justify-center" onClick={e => e.stopPropagation()}>
         <video
           src={src}
           controls
           autoPlay
-          style={{
-            maxHeight: '78vh', maxWidth: '90vw', borderRadius: 14,
-            background: '#000', border: '1px solid var(--color-border)',
-            boxShadow: '0 30px 80px rgba(0,0,0,0.7)',
-          }}
+          className="max-h-[78vh] max-w-[90vw] rounded-[14px] bg-black border border-border shadow-[0_30px_80px_rgba(0,0,0,0.7)]"
         />
       </div>
     </div>

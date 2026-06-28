@@ -134,8 +134,6 @@ export function RegenerateCaption(arg1:string):Promise<string>;
 
 export function RegenerateSubtitle(arg1:string):Promise<string>;
 
-export function RegenerateSubtitle(arg1:string):Promise<string>;
-
 export function RemoveClip(arg1:string):Promise<void>;
 
 export function RenderOverlay(arg1:string):Promise<void>;

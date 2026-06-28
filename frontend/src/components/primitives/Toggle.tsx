@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { cn } from '../../lib/cn'
 
 interface ToggleProps { on?: boolean; onToggle?: (v: boolean) => void }
 
@@ -8,19 +9,14 @@ export default function Toggle({ on: init = false, onToggle }: ToggleProps) {
   return (
     <button
       onClick={toggle}
-      style={{
-        width: 42, height: 24, borderRadius: 12,
-        border: 'none', cursor: 'pointer', padding: 2,
-        background: on
-          ? 'linear-gradient(160deg,var(--color-accent-hi),var(--color-accent-lo))'
-          : 'rgba(255,255,255,0.1)',
-        transition: 'background 0.2s',
-        display: 'flex',
-        justifyContent: on ? 'flex-end' : 'flex-start',
-        flexShrink: 0,
-      }}
+      className={cn(
+        'w-10.5 h-6 rounded-xl border-none cursor-pointer p-0.5 shrink-0 flex transition-[background] duration-200',
+        on
+          ? 'bg-[linear-gradient(160deg,var(--color-accent-hi),var(--color-accent-lo))] justify-end'
+          : 'bg-white/10 justify-start',
+      )}
     >
-      <span style={{ width: 20, height: 20, borderRadius: 10, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }} />
+      <span className="w-5 h-5 rounded-[10px] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.4)]" />
     </button>
   )
 }

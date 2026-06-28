@@ -6,8 +6,6 @@ import { useState } from 'react'
 import Spinner from '../components/primitives/Spinner'
 import ProgressRing from '../components/primitives/ProgressRing'
 
-const STAGES = ['reframe', 'subtitle', 'composite'] as const
-
 const STAGE_LABELS: Record<string, string> = {
   reframe:   'Reframe 9:16',
   subtitle:  'Subtitle rendering',
@@ -45,25 +43,17 @@ export default function ExportOverlay() {
   }
 
   return (
-    <div style={{
-      position: 'absolute', inset: 0, zIndex: 50,
-      background: 'rgba(8,6,13,0.82)', backdropFilter: 'blur(16px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'var(--font-ui)',
-    }}
-    onClick={() => { if (!running) dispatch(closeOverlay()) }}
+    <div
+      className="absolute inset-0 z-50 bg-[rgba(8,6,13,0.82)] backdrop-blur-lg flex items-center justify-center font-ui"
+      onClick={() => { if (!running) dispatch(closeOverlay()) }}
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{
-          width: 480, background: 'var(--color-panel-strong)', borderRadius: 22,
-          border: '1px solid var(--color-border)', boxShadow: '0 30px 80px rgba(0,0,0,0.7)',
-          overflow: 'hidden', animation: 'acfadein 0.2s ease-out',
-        }}
+        className="w-120 bg-panel-strong rounded-[22px] border border-border shadow-[0_30px_80px_rgba(0,0,0,0.7)] overflow-hidden animate-[acfadein_0.2s_ease-out]"
       >
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', padding: '18px 20px', borderBottom: '1px solid var(--color-border-soft)' }}>
-          <span style={{ flex: 1, fontSize: 15, fontWeight: 700, color: 'var(--color-text)' }}>
+        <div className="flex items-center px-5 py-4.5 border-b border-border-soft">
+          <span className="flex-1 text-[15px] font-bold text-text">
             Ekspor {targetClips.length} klip
           </span>
           <button onClick={() => dispatch(closeOverlay())} className="icon-btn" disabled={running}>
@@ -72,7 +62,7 @@ export default function ExportOverlay() {
         </div>
 
         {/* Clip list */}
-        <div style={{ maxHeight: 300, overflowY: 'auto', padding: '12px 14px' }}>
+        <div className="max-h-75 overflow-y-auto px-3.5 py-3">
           {targetClips.map(clip => {
             const prog = generateProgress[clip.id]
             const clipDone = clip.status === 'done'
@@ -80,22 +70,25 @@ export default function ExportOverlay() {
             const stage = prog?.step ?? ''
 
             return (
-              <div key={clip.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 8px', borderRadius: 11, marginBottom: 4 }}>
-                <div style={{ width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div key={clip.id} className="flex items-center gap-3 px-2 py-2.75 rounded-[11px] mb-1">
+                <div className="w-9 h-9 shrink-0 flex items-center justify-center">
                   {clipDone
-                    ? <div style={{ width: 28, height: 28, borderRadius: 10, background: 'rgba(84,214,160,0.15)', border: '1px solid rgba(84,214,160,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CheckIcon size={14} color="var(--color-good)" weight="bold" /></div>
-                    : prog ? <ProgressRing pct={pct} size={34} /> : <div style={{ width: 28, height: 28, borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--color-border)' }} />}
+                    ? <div className="w-7 h-7 rounded-[10px] bg-[rgba(84,214,160,0.15)] border border-[rgba(84,214,160,0.35)] flex items-center justify-center"><CheckIcon size={14} color="var(--color-good)" weight="bold" /></div>
+                    : prog ? <ProgressRing pct={pct} size={34} /> : <div className="w-7 h-7 rounded-[10px] bg-white/5 border border-border" />}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-semibold text-text overflow-hidden text-ellipsis whitespace-nowrap">
                     {clip.hook || `Klip ${clip.clip_index + 1}`}
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--color-faint)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                  <div className="text-[11px] text-faint font-mono mt-0.5">
                     {clipDone ? 'selesai' : prog ? (STAGE_LABELS[stage] ?? stage) + ` ${Math.round(pct)}%` : fmtDur(clip.duration_seconds)}
                   </div>
                   {prog && !clipDone && (
-                    <div style={{ marginTop: 7, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg,var(--color-accent-lo),var(--color-accent-hi))', transition: 'width .2s', borderRadius: 2 }} />
+                    <div className="mt-1.75 h-0.75 rounded-xs bg-white/[0.07] overflow-hidden">
+                      <div
+                        className="h-full rounded-xs bg-[linear-gradient(90deg,var(--color-accent-lo),var(--color-accent-hi))] transition-[width] duration-200"
+                        style={{ width: `${pct}%` }}
+                      />
                     </div>
                   )}
                 </div>
@@ -105,22 +98,21 @@ export default function ExportOverlay() {
         </div>
 
         {error && (
-          <div style={{ margin: '0 14px', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,107,102,0.1)', border: '1px solid rgba(255,107,102,0.3)', fontSize: 12.5, color: 'var(--color-bad)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="mx-3.5 mb-1 px-3.5 py-2.5 rounded-[10px] bg-[rgba(255,107,102,0.1)] border border-[rgba(255,107,102,0.3)] text-[12.5px] text-bad flex items-center gap-2">
             <WarningCircleIcon size={15} /> {error}
           </div>
         )}
 
         {/* Footer */}
-        <div style={{ display: 'flex', gap: 10, padding: '16px 20px', borderTop: '1px solid var(--color-border-soft)' }}>
-          <button className="btn-ghost" onClick={() => dispatch(closeOverlay())} disabled={running} style={{ flex: 1, padding: '12px 0', borderRadius: 12, fontSize: 14 }}>
+        <div className="flex gap-2.5 px-5 py-4 border-t border-border-soft">
+          <button className="btn-ghost flex-1 py-3 rounded-xl text-[14px]" onClick={() => dispatch(closeOverlay())} disabled={running}>
             {done ? 'Tutup' : 'Batal'}
           </button>
           {!done && (
             <button
               onClick={running ? () => dispatch(openOverlay('log')) : handleExport}
-              className="btn-primary"
+              className="btn-primary flex-2 py-3 rounded-xl text-[14px]"
               disabled={done}
-              style={{ flex: 2, padding: '12px 0', borderRadius: 12, fontSize: 14 }}
             >
               {running ? <><Spinner size={15} /> Lihat log</> : <><ExportIcon size={16} weight="bold" /> Mulai ekspor</>}
             </button>

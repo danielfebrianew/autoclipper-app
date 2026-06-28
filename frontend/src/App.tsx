@@ -120,8 +120,8 @@ function AppInner() {
 
   if (loading) {
     return (
-      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ color: 'var(--color-faint)', fontSize: 13 }}>Loading…</span>
+      <div className="h-full flex items-center justify-center">
+        <span className="text-faint text-[13px]">Loading…</span>
       </div>
     )
   }
@@ -129,7 +129,7 @@ function AppInner() {
   const isMain = screen === 'workspace' || screen === 'gallery' || screen === 'library' || screen === 'overlay-editor'
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+    <div className="relative w-full h-full overflow-hidden">
       {/* Screens */}
       {screen === 'bootstrap'  && !licenseValid && <BootstrapScreen />}
       {screen === 'bootstrap'  && licenseValid && !setupComplete && <BootstrapScreen />}

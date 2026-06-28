@@ -7,6 +7,7 @@ import { createOverlayFromClip } from '../../store/slices/overlaySlice'
 import { toastError, errText } from '../../lib/toast'
 import ViralChip from '../../components/primitives/ViralChip'
 import Spinner from '../../components/primitives/Spinner'
+import { cn } from '../../lib/cn'
 
 function fmtDur(s: number): string {
   const m = Math.floor(s / 60), sec = Math.round(s % 60)
@@ -14,85 +15,67 @@ function fmtDur(s: number): string {
 }
 
 function GalleryCard({ item, selected, onToggle, onOpen, onEditOverlay }: { item: GalleryItem; selected: boolean; onToggle: () => void; onOpen: () => void; onEditOverlay: () => void }) {
-  const w = '100%'
   return (
-    <div style={{ cursor: 'pointer', fontFamily: 'var(--font-ui)' }} onClick={onOpen}>
-      <div style={{
-        position: 'relative', borderRadius: 14, padding: 3,
-        boxShadow: selected ? '0 0 0 1.5px var(--color-accent)' : 'none',
-        background: selected ? 'var(--color-accent-soft)' : 'transparent',
-        transition: 'all .14s',
-      }}>
-        <div style={{
-          borderRadius: 12, aspectRatio: '9/16', overflow: 'hidden', position: 'relative',
-          background: 'linear-gradient(165deg,#1b1530,#120d1e)',
-          border: '1px solid var(--color-border)',
-        }}>
-          {/* Thumbnail: frame pertama klip final via /media. preload=metadata
-              membuat browser menampilkan poster frame tanpa memuat full video. */}
+    <div className="cursor-pointer font-ui" onClick={onOpen}>
+      <div className={cn(
+        'relative rounded-[14px] p-0.75 transition-all duration-140',
+        selected ? 'bg-accent-soft shadow-[0_0_0_1.5px_var(--color-accent)]' : 'bg-transparent shadow-none',
+      )}>
+        <div className="rounded-xl overflow-hidden relative bg-[linear-gradient(165deg,#1b1530,#120d1e)] border border-border" style={{ aspectRatio: '9/16' }}>
           {item.final_clip_path ? (
             <video
               src={`/media${item.final_clip_path}#t=0.5`}
               preload="metadata"
               muted
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+              className="absolute inset-0 w-full h-full object-cover"
             />
           ) : (
-            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(135deg,rgba(255,255,255,0.03) 0 1px,transparent 1px 11px)' }} />
+            <div className="absolute inset-0 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.03)_0_1px,transparent_1px_11px)]" />
           )}
+
           {/* Play overlay */}
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.12)' }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: 3 }}>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/12">
+            <div className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-[6px] border border-white/25 flex items-center justify-center pl-0.75">
               <PlayIcon size={16} color="rgba(255,255,255,0.95)" weight="fill" />
             </div>
           </div>
+
           {/* Duration badge */}
-          <div style={{ position: 'absolute', right: 7, bottom: 7, fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(255,255,255,0.8)', background: 'rgba(0,0,0,0.45)', padding: '1px 5px', borderRadius: 5 }}>
+          <div className="absolute right-1.75 bottom-1.75 font-mono text-[9px] text-white/80 bg-black/45 px-1.25 py-px rounded-[5px]">
             {fmtDur(item.duration_seconds)}
           </div>
-          {/* ViralChip */}
+
           <ViralChip score={item.viral_score} float />
+
           {/* Checkbox */}
           <button
             onClick={e => { e.stopPropagation(); onToggle() }}
-            style={{
-              position: 'absolute', top: 8, right: 8,
-              width: 22, height: 22, borderRadius: 7,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: selected ? 'var(--color-accent)' : 'rgba(0,0,0,0.4)',
-              border: `1.5px solid ${selected ? 'var(--color-accent)' : 'rgba(255,255,255,0.45)'}`,
-              backdropFilter: 'blur(4px)',
-              cursor: 'pointer',
-            }}
+            className={cn(
+              'absolute top-2 right-2 w-5.5 h-5.5 rounded-[7px] flex items-center justify-center cursor-pointer backdrop-blur-xs',
+              selected ? 'bg-accent border-[1.5px] border-accent' : 'bg-black/40 border-[1.5px] border-white/45',
+            )}
           >
             {selected && <CheckIcon size={13} color="#fff" weight="bold" />}
           </button>
-          {/* Edit overlay (tempel konteks) */}
+
+          {/* Edit overlay button */}
           {item.final_clip_path && (
             <button
               onClick={e => { e.stopPropagation(); onEditOverlay() }}
               title="Edit overlay — tempel gambar/video konteks di bawah"
-              style={{
-                position: 'absolute', top: 8, left: 8,
-                height: 22, padding: '0 8px', borderRadius: 7,
-                display: 'flex', alignItems: 'center', gap: 4,
-                background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)',
-                border: '1px solid rgba(255,255,255,0.25)', cursor: 'pointer',
-                fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.92)',
-                fontFamily: 'var(--font-ui)',
-              }}
+              className="absolute top-2 left-2 h-5.5 px-2 rounded-[7px] flex items-center gap-1 bg-black/45 backdrop-blur-xs border border-white/25 cursor-pointer text-[10px] font-semibold text-white/92 font-ui"
             >
               <FilmReelIcon size={12} weight="fill" /> Overlay
             </button>
           )}
         </div>
       </div>
-      <div style={{ padding: '8px 4px 0' }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div className="pt-2 px-1">
+        <div className="text-[12px] font-semibold text-text overflow-hidden text-ellipsis whitespace-nowrap">
           {item.hook || 'Klip'}
         </div>
-        <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: 0.3, textTransform: 'uppercase', color: 'var(--color-accent-hi)', background: 'var(--color-accent-soft)', padding: '2px 5px', borderRadius: 5, border: '1px solid var(--color-accent-line)' }}>
+        <div className="mt-1 flex items-center gap-1.5">
+          <span className="font-mono text-[8px] tracking-[0.3px] uppercase text-accent-hi bg-accent-soft px-1.25 py-0.5 rounded-[5px] border border-accent-line">
             {item.category}
           </span>
         </div>
@@ -108,14 +91,12 @@ export default function GalleryMain() {
   useEffect(() => { dispatch(fetchGallery()) }, [])
 
   const filtered = activeVid === 'all' ? items : items.filter(i => i.project_id === activeVid)
-
   const allSelected = filtered.length > 0 && filtered.every(i => selected.includes(i.id))
 
   function toggleAll() {
     allSelected ? dispatch(clearGallerySelected()) : dispatch(selectAllGallery(filtered.map(i => i.id)))
   }
 
-  // Group by project_title for headers
   const groups: Map<string, { title: string; items: GalleryItem[] }> = new Map()
   for (const item of filtered) {
     const key = activeVid === 'all' ? item.project_id : '__single'
@@ -129,25 +110,28 @@ export default function GalleryMain() {
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, fontFamily: 'var(--font-ui)' }}>
+    <div className="flex-1 flex flex-col min-w-0 font-ui">
       {/* Toolbar */}
-      <div style={{ height: 50, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '0 20px', borderBottom: '1px solid var(--color-border-soft)' }}>
+      <div className="h-12.5 shrink-0 flex items-center gap-2.5 px-5 border-b border-border-soft">
         <button
           onClick={toggleAll}
-          style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: allSelected ? 'var(--color-accent-soft)' : 'rgba(255,255,255,0.05)', border: `1px solid ${allSelected ? 'var(--color-accent-line)' : 'var(--color-border)'}`, cursor: 'pointer' }}
+          className={cn(
+            'w-5.5 h-5.5 rounded-[7px] shrink-0 flex items-center justify-center border cursor-pointer',
+            allSelected ? 'bg-accent-soft border-accent-line' : 'bg-white/5 border-border',
+          )}
         >
           {allSelected && <CheckIcon size={11} color="var(--color-accent-hi)" weight="bold" />}
         </button>
-        <span style={{ fontSize: 13, color: 'var(--color-muted)' }}>
+        <span className="text-[13px] text-muted">
           {filtered.length} klip{selected.length > 0 ? ` · ${selected.length} dipilih` : ''}
         </span>
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
         {selected.length > 0 && (
           <>
-            <button className="btn-ghost" onClick={() => dispatch(openDelete(selected))} style={{ padding: '7px 12px', borderRadius: 10, fontSize: 13, gap: 6 }}>
+            <button className="btn-ghost px-3 py-1.75 rounded-[10px] text-[13px] gap-1.5" onClick={() => dispatch(openDelete(selected))}>
               <TrashIcon size={15} /> Hapus
             </button>
-            <button className="btn-primary" onClick={() => dispatch(openExport(selected))} style={{ padding: '8px 14px', borderRadius: 10, fontSize: 13, gap: 6 }}>
+            <button className="btn-primary px-3.5 py-2 rounded-[10px] text-[13px] gap-1.5" onClick={() => dispatch(openExport(selected))}>
               <ExportIcon size={15} weight="bold" /> Ekspor ({selected.length})
             </button>
           </>
@@ -155,42 +139,40 @@ export default function GalleryMain() {
       </div>
 
       {/* Grid */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+      <div className="flex-1 overflow-y-auto p-5">
         {loading && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, gap: 10 }}>
+          <div className="flex items-center justify-center h-50 gap-2.5">
             <Spinner size={20} color="var(--color-accent-hi)" />
-            <span style={{ fontSize: 13, color: 'var(--color-muted)' }}>Memuat galeri…</span>
+            <span className="text-[13px] text-muted">Memuat galeri…</span>
           </div>
         )}
 
         {!loading && filtered.length === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 300, gap: 12, opacity: 0.55 }}>
+          <div className="flex flex-col items-center justify-center h-75 gap-3 opacity-55">
             <PlayIcon size={32} color="var(--color-faint)" />
-            <span style={{ fontSize: 13.5, color: 'var(--color-faint)', textAlign: 'center' }}>
+            <span className="text-[13.5px] text-faint text-center">
               Belum ada klip di galeri.
             </span>
           </div>
         )}
 
         {Array.from(groups.entries()).map(([key, g]) => (
-          <div key={key} style={{ marginBottom: 28 }}>
-            {/* Group header (only shown in "all" mode) */}
+          <div key={key} className="mb-7">
             {activeVid === 'all' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+              <div className="flex items-center gap-2.5 mb-3.5">
+                <span className="text-[13px] font-bold text-text overflow-hidden text-ellipsis whitespace-nowrap flex-1">
                   {g.title || key.slice(0, 8)}
                 </span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--color-faint)' }}>{g.items.length} klip</span>
+                <span className="font-mono text-[10.5px] text-faint">{g.items.length} klip</span>
                 <button
                   onClick={() => openProjectWorkspace(key)}
-                  className="btn-ghost"
-                  style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11 }}
+                  className="btn-ghost px-2.5 py-1.25 rounded-lg text-[11px]"
                 >
                   Buka workspace
                 </button>
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
               {g.items.map(item => (
                 <GalleryCard
                   key={item.id}

@@ -7,49 +7,42 @@ export default function OfflineScreen() {
   const dispatch = useAppDispatch()
 
   return (
-    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+    <div className="absolute inset-0 flex flex-col items-center justify-center p-10">
       <Glow x="30%" y="20%" size={400} color="rgba(255,140,60,0.10)" />
       <Glow x="70%" y="60%" size={360} color="rgba(80,60,170,0.12)" />
 
-      <div style={{ width: 400, maxWidth: '100%', position: 'relative', zIndex: 2, fontFamily: 'var(--font-ui)', textAlign: 'center' }}>
+      <div className="w-100 max-w-full relative z-2 font-ui text-center">
         {/* Icon */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 16,
-            background: 'rgba(255,140,60,0.15)',
-            border: '1px solid rgba(255,140,60,0.35)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
+        <div className="flex justify-center mb-5.5">
+          <div className="w-14 h-14 rounded-2xl bg-[rgba(255,140,60,0.15)] border border-[rgba(255,140,60,0.35)] flex items-center justify-center">
             <WifiNoneIcon size={26} color="var(--color-warn)" weight="bold" />
           </div>
         </div>
 
-        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.4, color: 'var(--color-text)', marginBottom: 10 }}>
+        <div className="text-[22px] font-extrabold tracking-[-0.4px] text-text mb-2.5">
           Tidak ada koneksi internet
         </div>
-        <div style={{ fontSize: 14, color: 'var(--color-muted)', lineHeight: 1.6, marginBottom: 32 }}>
+        <div className="text-[14px] text-muted leading-[1.6] mb-8">
           Auto Clipper tidak bisa menghubungi server aktivasi.<br />
           Pastikan kamu terhubung ke internet, lalu coba lagi.
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+        <div className="flex flex-col gap-2.75">
           <button
             onClick={() => dispatch(setScreen('activation'))}
-            className="btn-primary"
-            style={{ padding: '13px 0', borderRadius: 14, fontSize: 14, fontWeight: 700, width: '100%' }}
+            className="btn-primary w-full py-3.25 rounded-[14px] text-[14px] font-bold"
           >
             <ArrowCounterClockwiseIcon size={16} weight="bold" /> Coba lagi
           </button>
           <button
             onClick={() => dispatch(setScreen('workspace'))}
-            className="btn-ghost"
-            style={{ padding: '13px 0', borderRadius: 14, fontSize: 14, width: '100%' }}
+            className="btn-ghost w-full py-3.25 rounded-[14px] text-[14px]"
           >
             Lanjutkan offline <ArrowRightIcon size={15} />
           </button>
         </div>
 
-        <div style={{ marginTop: 22, fontSize: 12, color: 'var(--color-faint)', lineHeight: 1.55 }}>
+        <div className="mt-5.5 text-[12px] text-faint leading-[1.55]">
           Jika sudah pernah diaktifkan sebelumnya,<br />kamu bisa tetap menggunakan aplikasi secara offline.
         </div>
       </div>

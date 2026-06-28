@@ -1,6 +1,7 @@
 import { LightningIcon, ImageIcon, GearSixIcon, SparkleIcon, HardDrivesIcon, FilmReelIcon } from '@phosphor-icons/react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { setScreen, openOverlay, openOverlayEditor } from '../store/slices/uiSlice'
+import { cn } from '../lib/cn'
 
 type Tab = 'workspace' | 'library' | 'gallery' | 'overlay-editor'
 
@@ -13,42 +14,22 @@ export default function Toolbar() {
     : 'workspace'
 
   return (
-    <div style={{
-      height: 54, flexShrink: 0,
-      display: 'flex', alignItems: 'center', gap: 14, padding: '0 18px',
-      borderBottom: '1px solid var(--color-border-soft)',
-      position: 'relative', zIndex: 20,
-      fontFamily: 'var(--font-ui)',
-    }}>
+    <div className="h-13.5 shrink-0 flex items-center gap-3.5 px-4.5 border-b border-border-soft relative z-20 font-ui">
       {/* Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-        <span style={{
-          width: 24, height: 24, borderRadius: 7,
-          background: 'linear-gradient(160deg, var(--color-accent-hi), var(--color-accent-lo))',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 4px 12px -3px var(--color-accent-glow)',
-          flexShrink: 0,
-        }}>
+      <div className="flex items-center gap-2.25">
+        <span className="w-6 h-6 rounded-[7px] bg-[linear-gradient(160deg,var(--color-accent-hi),var(--color-accent-lo))] flex items-center justify-center shadow-[0_4px_12px_-3px_var(--color-accent-glow)] shrink-0">
           <SparkleIcon size={13} color="#fff" weight="fill" />
         </span>
-        <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--color-text)', letterSpacing: -0.2, whiteSpace: 'nowrap' }}>
+        <span className="text-[14px] font-extrabold text-text tracking-[-0.2px] whitespace-nowrap">
           Auto Clipper
         </span>
-        <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600,
-          color: 'var(--color-accent-hi)', background: 'var(--color-accent-soft)',
-          border: '1px solid var(--color-accent-line)', padding: '2px 6px', borderRadius: 5,
-        }}>
+        <span className="font-mono text-[9px] font-semibold text-accent-hi bg-accent-soft border border-accent-line px-1.5 py-0.5 rounded-[5px]">
           PRO
         </span>
       </div>
 
       {/* Nav chips — centered absolutely so it's always in the middle of the bar */}
-      <div style={{
-        position: 'absolute', left: '50%', top: '50%',
-        transform: 'translate(-50%, -50%)',
-        display: 'flex', gap: 3, padding: 4, borderRadius: 12,
-      }} className="glass">
+      <div className="glass absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-0.75 p-1 rounded-xl">
         {([
           ['workspace', 'Workspace', LightningIcon],
           ['library',   'Library',   HardDrivesIcon],
@@ -58,7 +39,7 @@ export default function Toolbar() {
           <button
             key={id}
             onClick={() => id === 'overlay-editor' ? dispatch(openOverlayEditor(null)) : dispatch(setScreen(id))}
-            className={`chip ${active === id ? 'active' : ''}`}
+            className={cn('chip', active === id && 'active')}
             style={{ padding: '7px 13px', fontSize: 13, borderRadius: 999 }}
           >
             <Icon size={15} weight={active === id ? 'fill' : 'regular'} />
@@ -67,7 +48,7 @@ export default function Toolbar() {
         ))}
       </div>
 
-      <div style={{ flex: 1 }} />
+      <div className="flex-1" />
 
       {/* Gear */}
       <button className="icon-btn" onClick={() => dispatch(openOverlay('settings'))}>
@@ -75,17 +56,9 @@ export default function Toolbar() {
       </button>
 
       {/* User */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '4px 4px 4px 12px', borderRadius: 999,
-      }} className="glass">
-        <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--color-muted)' }}>user</span>
-        <span style={{
-          width: 26, height: 26, borderRadius: 13,
-          background: 'linear-gradient(160deg,#9d86ff,#6b4eff)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 11, fontWeight: 700, color: '#fff',
-        }}>U</span>
+      <div className="glass flex items-center gap-2 pl-3 pr-1 py-1 rounded-full">
+        <span className="text-[11.5px] font-semibold text-muted">user</span>
+        <span className="w-6.5 h-6.5 rounded-full bg-[linear-gradient(160deg,#9d86ff,#6b4eff)] flex items-center justify-center text-[11px] font-bold text-white">U</span>
       </div>
     </div>
   )

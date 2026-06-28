@@ -10,7 +10,7 @@ interface CaptionStyle {
 }
 
 interface Props {
-  src: string          // /media<abs-path> (untuk fallback) — kita pakai videoPath utk decoder
+  src: string          // /media<abs-path> (untuk fallback)
   videoPath: string    // path absolut video di disk (untuk /preview/frame)
   currentTime: number
   ratio: string          // '9:16' | '1:1' | '4:5'
@@ -68,13 +68,11 @@ export default function OutputStage({ videoPath, currentTime, ratio, zones, capt
   const posStyle = POSITION_STYLE[caption.position] || POSITION_STYLE.bot
   const isDual = zones.length > 1
 
-  // Satu WebGL renderer per zona (single = 1 canvas, dual = 2).
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([])
   const rendererRefs = useRef<(GLRenderer | null)[]>([])
   const abortRef = useRef<AbortController | null>(null)
   const lastFetchedTime = useRef<number>(-1)
 
-  // Inisialisasi renderer saat canvas siap / jumlah zona berubah.
   useEffect(() => {
     rendererRefs.current.forEach(r => r?.dispose())
     rendererRefs.current = canvasRefs.current.map(c => {
@@ -86,18 +84,16 @@ export default function OutputStage({ videoPath, currentTime, ratio, zones, capt
         return null
       }
     })
-    lastFetchedTime.current = -1 // paksa fetch ulang
+    lastFetchedTime.current = -1
     return () => {
       rendererRefs.current.forEach(r => r?.dispose())
       rendererRefs.current = []
     }
   }, [zones.length])
 
-  // Fetch frame native + gambar tiap zona saat currentTime / zones berubah.
   useEffect(() => {
     if (!videoPath || zones.length === 0) return
 
-    // Debounce kecil: hindari fetch berlebih saat scrubbing cepat.
     const needFetch = Math.abs(currentTime - lastFetchedTime.current) > 0.001
 
     let cancelled = false
@@ -110,7 +106,6 @@ export default function OutputStage({ videoPath, currentTime, ratio, zones, capt
           const { bitmap } = await fetchFrameBitmap(videoPath, currentTime, 82, ac.signal)
           if (cancelled) { bitmap.close?.(); return }
           lastFetchedTime.current = currentTime
-          // Upload frame yang sama ke semua renderer (dual = crop berbeda dari frame sama).
           rendererRefs.current.forEach(r => r?.setFrame(bitmap))
           bitmap.close?.()
         }
@@ -118,7 +113,6 @@ export default function OutputStage({ videoPath, currentTime, ratio, zones, capt
           const r = rendererRefs.current[i]
           if (!r) return
           const ow = OUT_W[ratio] ?? OUT_W['9:16']
-          // Untuk dual stack, tiap zona setengah tinggi → canvas ow x (OUT_H * rect.h)
           const oh = Math.round(OUT_H * zone.rect.h)
           const cw = isDual ? Math.round(ow * zone.rect.w) : ow
           r.draw(zone.crop, cw, oh)
@@ -132,50 +126,39 @@ export default function OutputStage({ videoPath, currentTime, ratio, zones, capt
   }, [videoPath, currentTime, zones, ratio, isDual])
 
   return (
-    <div style={{
-      position: 'relative', borderRadius: 14, overflow: 'hidden',
-      background: '#0a0712', border: '1px solid var(--color-accent-line)',
-      aspectRatio: aspect,
-      width: '100%',
-      maxWidth: '100%',
-      maxHeight: '100%',
-      margin: 'auto',
-    }}>
+    <div
+      className="relative rounded-[14px] overflow-hidden bg-[#0a0712] border border-accent-line w-full max-w-full max-h-full m-auto"
+      style={{ aspectRatio: aspect }}
+    >
       {videoPath ? zones.map((zone, i) => (
         <div
           key={i}
+          className="absolute overflow-hidden"
           style={{
-            position: 'absolute',
             left: `${zone.rect.x * 100}%`,
             top: `${zone.rect.y * 100}%`,
             width: `${zone.rect.w * 100}%`,
             height: `${zone.rect.h * 100}%`,
-            overflow: 'hidden',
             borderTop: isDual && i > 0 ? '1px solid rgba(123,97,255,0.3)' : undefined,
           }}
         >
           <canvas
             ref={el => { canvasRefs.current[i] = el }}
-            style={{ width: '100%', height: '100%', display: 'block' }}
+            className="w-full h-full block"
           />
         </div>
       )) : (
-        <div style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: 'var(--color-faint)', fontSize: 11,
-        }}>
+        <div className="absolute inset-0 flex items-center justify-center text-faint text-[11px]">
           Output {ratio}
         </div>
       )}
 
-      {/* Subtitle (libass-equivalent): override manual statis, atau transcript live. */}
+      {/* Subtitle overlay — position and font-size are runtime values */}
       {showCaption && (caption.text || transcript) && (
-        <div style={{
-          position: 'absolute', left: 0, right: 0, display: 'flex', justifyContent: 'center',
-          pointerEvents: 'none', zIndex: 2,
-          ...posStyle,
-        }}>
+        <div
+          className="absolute left-0 right-0 flex justify-center pointer-events-none z-2"
+          style={posStyle}
+        >
           <span style={{ ...captionCSS(caption.preset), fontSize: FONT_SIZE[caption.size] || 14 }}>
             {caption.text || transcript}
           </span>
@@ -183,11 +166,7 @@ export default function OutputStage({ videoPath, currentTime, ratio, zones, capt
       )}
 
       {/* Ratio badge */}
-      <div style={{
-        position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.55)',
-        borderRadius: 6, padding: '3px 7px', fontSize: 10, fontFamily: 'var(--font-mono)',
-        color: 'var(--color-accent-hi)', pointerEvents: 'none', zIndex: 3,
-      }}>
+      <div className="absolute top-2 right-2 bg-black/55 rounded-md px-1.75 py-0.75 text-[10px] font-mono text-accent-hi pointer-events-none z-3">
         {ratio}
       </div>
     </div>

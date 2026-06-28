@@ -12,8 +12,9 @@ import { toastError, toastSuccess, errText } from '../../lib/toast'
 import Spinner from '../../components/primitives/Spinner'
 import LibraryCard from './LibraryCard'
 import LibraryDetail from './LibraryDetail'
+import { cn } from '../../lib/cn'
 
-const UNDO_DURATION = 5000 // ms
+const UNDO_DURATION = 5000
 
 type Sort = 'newest' | 'largest' | 'longest' | 'name'
 const SORT_LABELS: Record<Sort, string> = {
@@ -32,16 +33,15 @@ function StorageBar({ storage }: { storage: { limit_gb: number; categories: { si
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <span style={{ fontSize: 12, color: 'var(--color-muted)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>
+    <div className="flex items-center gap-2.5">
+      <span className="text-[12px] text-muted font-ui whitespace-nowrap">
         {fmt(totalBytes)} / {storage.limit_gb} GB
       </span>
-      <div style={{ width: 100, height: 6, borderRadius: 3, background: 'var(--color-border)', overflow: 'hidden', flexShrink: 0 }}>
-        <div style={{
-          height: '100%', borderRadius: 3,
-          background: pct > 85 ? 'var(--color-bad)' : 'linear-gradient(90deg, var(--color-accent-lo), var(--color-accent-hi))',
-          width: `${pct}%`,
-        }} />
+      <div className="w-25 h-1.5 rounded-[3px] bg-border overflow-hidden shrink-0">
+        <div
+          className={cn('h-full rounded-[3px]', pct > 85 ? 'bg-bad' : 'bg-[linear-gradient(90deg,var(--color-accent-lo),var(--color-accent-hi))]')}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   )
@@ -55,7 +55,6 @@ export default function LibraryMain() {
   const [showSort, setShowSort] = useState(false)
   const [clearingAll, setClearingAll] = useState(false)
 
-  // Pending source-delete timers, keyed by video_id, so undo can cancel them.
   const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
   useEffect(() => {
@@ -66,10 +65,7 @@ export default function LibraryMain() {
     }
   }, [])
 
-  // Detail view takes over the whole pane.
-  if (detailVideoId) {
-    return <LibraryDetail />
-  }
+  if (detailVideoId) return <LibraryDetail />
 
   const filtered = list.filter(v =>
     v.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -83,7 +79,6 @@ export default function LibraryMain() {
     return a.title.localeCompare(b.title)
   })
 
-  // Delete the source FILE (keeps DB rows). Optimistic hide + undo toast.
   async function handleDelete(video: LibraryVideo) {
     try {
       await dispatch(deleteSourceVideo(video.video_id)).unwrap()
@@ -105,28 +100,24 @@ export default function LibraryMain() {
       const t = pendingDeletes.current.get(video.video_id)
       if (t) { clearTimeout(t); pendingDeletes.current.delete(video.video_id) }
       toast.dismiss(toastId)
-      // Re-download the source to truly undo (file was removed from disk).
       try { await dispatch(redownloadSource(video.video_id)).unwrap() } catch {}
       dispatch(restoreVideo(video))
     }
 
     toast.custom(
       (t) => (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12,
-          background: 'rgba(20,16,32,0.95)', color: 'rgba(255,255,255,0.93)',
-          border: '1px solid var(--color-border)', fontSize: 13, fontFamily: 'var(--font-ui)',
-          backdropFilter: 'blur(12px)', boxShadow: '0 18px 50px rgba(0,0,0,0.55)', maxWidth: 380,
-          opacity: t.visible ? 1 : 0, transition: 'opacity .2s',
-        }}>
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/93 border border-border text-[13px] font-ui backdrop-blur-xl shadow-[0_18px_50px_rgba(0,0,0,0.55)] max-w-95"
+          style={{ background: 'rgba(20,16,32,0.95)', opacity: t.visible ? 1 : 0, transition: 'opacity .2s' }}
+        >
           <TrashIcon size={15} color="var(--color-muted)" />
-          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
             File sumber dihapus.
           </span>
-          <button onClick={handleUndo} style={{
-            border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--color-accent-hi)',
-            fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-ui)', padding: '2px 4px', borderRadius: 4, flexShrink: 0,
-          }}>
+          <button
+            onClick={handleUndo}
+            className="border-none bg-transparent cursor-pointer text-accent-hi text-[13px] font-bold font-ui px-1 py-0.5 rounded-sm shrink-0"
+          >
             Undo
           </button>
         </div>
@@ -158,52 +149,33 @@ export default function LibraryMain() {
   }
 
   return (
-    <div style={{
-      flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0,
-      fontFamily: 'var(--font-ui)',
-    }}>
+    <div className="flex-1 flex flex-col min-w-0 font-ui">
       {/* Header */}
-      <div style={{
-        height: 56, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10,
-        padding: '0 20px', borderBottom: '1px solid var(--color-border-soft)',
-      }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 7,
-          background: 'rgba(255,255,255,0.05)', border: '1px solid var(--color-border)',
-          borderRadius: 10, padding: '6px 11px', flex: 1, maxWidth: 320,
-        }}>
+      <div className="h-14 shrink-0 flex items-center gap-2.5 px-5 border-b border-border-soft">
+        <div className="flex items-center gap-1.75 bg-white/5 border border-border rounded-[10px] px-2.75 py-1.5 flex-1 max-w-80">
           <MagnifyingGlassIcon size={14} color="var(--color-muted)" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Cari judul atau URL…"
-            style={{
-              border: 'none', background: 'transparent', outline: 'none',
-              fontSize: 13, color: 'var(--color-text)', width: '100%', fontFamily: 'var(--font-ui)',
-            }}
+            className="border-none bg-transparent outline-none text-[13px] text-text w-full font-ui"
           />
         </div>
 
-        <div style={{ position: 'relative' }}>
-          <button onClick={() => setShowSort(s => !s)} className="btn-ghost" style={{ padding: '7px 12px', borderRadius: 10, fontSize: 13, gap: 5 }}>
+        <div className="relative">
+          <button onClick={() => setShowSort(s => !s)} className="btn-ghost px-3 py-1.75 rounded-[10px] text-[13px] gap-1.25">
             {SORT_LABELS[sort]} <CaretDownIcon size={12} />
           </button>
           {showSort && (
-            <div style={{
-              position: 'absolute', top: '100%', right: 0, marginTop: 6, zIndex: 30,
-              background: 'var(--color-panel-strong)', border: '1px solid var(--color-border)',
-              borderRadius: 12, padding: 6, minWidth: 140, boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
-            }}>
+            <div className="absolute top-full right-0 mt-1.5 z-30 bg-panel-strong border border-border rounded-xl p-1.5 min-w-35 shadow-[0_12px_32px_rgba(0,0,0,0.4)]">
               {(Object.keys(SORT_LABELS) as Sort[]).map(s => (
                 <button
                   key={s}
                   onClick={() => { setSort(s); setShowSort(false) }}
-                  style={{
-                    display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px',
-                    borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-ui)',
-                    background: sort === s ? 'var(--color-accent-soft)' : 'transparent',
-                    color: sort === s ? 'var(--color-accent-hi)' : 'var(--color-text)',
-                  }}
+                  className={cn(
+                    'block w-full text-left px-3 py-2 rounded-lg border-none cursor-pointer text-[13px] font-ui',
+                    sort === s ? 'bg-accent-soft text-accent-hi' : 'bg-transparent text-text',
+                  )}
                 >
                   {SORT_LABELS[s]}
                 </button>
@@ -212,13 +184,12 @@ export default function LibraryMain() {
           )}
         </div>
 
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
         <StorageBar storage={storage} />
         <button
           onClick={handleClearAll}
           disabled={clearingAll}
-          className="btn-ghost"
-          style={{ padding: '7px 12px', borderRadius: 10, fontSize: 12.5, gap: 5, color: 'var(--color-muted)' }}
+          className="btn-ghost px-3 py-1.75 rounded-[10px] text-[12.5px] gap-1.25 text-muted"
         >
           {clearingAll ? <Spinner size={13} /> : <TrashIcon size={13} />}
           Bersihkan semua source
@@ -226,24 +197,24 @@ export default function LibraryMain() {
       </div>
 
       {/* Grid */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+      <div className="flex-1 overflow-y-auto p-5">
         {loading && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, gap: 10 }}>
+          <div className="flex items-center justify-center h-50 gap-2.5">
             <Spinner size={20} color="var(--color-accent-hi)" />
-            <span style={{ fontSize: 13, color: 'var(--color-muted)' }}>Memuat library…</span>
+            <span className="text-[13px] text-muted">Memuat library…</span>
           </div>
         )}
 
         {!loading && sorted.length === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 300, gap: 12, opacity: 0.55 }}>
+          <div className="flex flex-col items-center justify-center h-75 gap-3 opacity-55">
             <HardDrivesIcon size={36} color="var(--color-faint)" weight="duotone" />
-            <span style={{ fontSize: 13.5, color: 'var(--color-faint)', textAlign: 'center', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+            <span className="text-[13.5px] text-faint text-center leading-normal whitespace-pre-line">
               {search ? 'Tidak ada video yang cocok.' : 'Belum ada video yang didownload.\nMulai dari sebuah link di tab Workspace.'}
             </span>
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
           {sorted.map(video => (
             <LibraryCard
               key={video.video_id}

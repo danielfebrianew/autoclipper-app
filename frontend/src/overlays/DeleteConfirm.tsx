@@ -1,4 +1,4 @@
-import { TrashIcon, XIcon } from '@phosphor-icons/react'
+import { TrashIcon } from '@phosphor-icons/react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { closeOverlay, setActiveProject } from '../store/slices/uiSlice'
 import { removeClip, fetchClips } from '../store/slices/clipSlice'
@@ -21,7 +21,6 @@ export default function DeleteConfirm() {
 
   const [loading, setLoading] = useState(false)
 
-  // ── Mode hapus proyek ──
   const targetProject = deleteProjectId ? projects.find(p => p.id === deleteProjectId) : null
   const isProjectMode = !!deleteProjectId
 
@@ -53,32 +52,24 @@ export default function DeleteConfirm() {
   }
 
   return (
-    <div style={{
-      position: 'absolute', inset: 0, zIndex: 50,
-      background: 'rgba(8,6,13,0.82)', backdropFilter: 'blur(14px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'var(--font-ui)',
-    }}
-    onClick={() => !loading && dispatch(closeOverlay())}
+    <div
+      className="absolute inset-0 z-50 bg-[rgba(8,6,13,0.82)] backdrop-blur-[14px] flex items-center justify-center font-ui"
+      onClick={() => !loading && dispatch(closeOverlay())}
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{
-          width: 380, background: 'var(--color-panel-strong)', borderRadius: 20,
-          border: '1px solid var(--color-border)', boxShadow: '0 30px 80px rgba(0,0,0,0.7)',
-          overflow: 'hidden', animation: 'acfadein 0.18s ease-out',
-        }}
+        className="w-95 bg-panel-strong rounded-[20px] border border-border shadow-[0_30px_80px_rgba(0,0,0,0.7)] overflow-hidden animate-[acfadein_0.18s_ease-out]"
       >
         {/* Icon row */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 24px 20px', gap: 14 }}>
-          <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,107,102,0.12)', border: '1px solid rgba(255,107,102,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="flex flex-col items-center px-6 pt-7 pb-5 gap-3.5">
+          <div className="w-13 h-13 rounded-2xl bg-[rgba(255,107,102,0.12)] border border-[rgba(255,107,102,0.3)] flex items-center justify-center">
             <TrashIcon size={24} color="var(--color-bad)" weight="bold" />
           </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--color-text)', marginBottom: 8 }}>
+          <div className="text-center">
+            <div className="text-[17px] font-extrabold text-text mb-2">
               {isProjectMode ? 'Hapus proyek?' : `Hapus ${targets.length} klip?`}
             </div>
-            <div style={{ fontSize: 13.5, color: 'var(--color-muted)', lineHeight: 1.6 }}>
+            <div className="text-[13.5px] text-muted leading-[1.6]">
               {isProjectMode ? (
                 <>"{targetProject?.name || 'Project'}" beserta semua klipnya akan dihapus permanen.</>
               ) : targets.length === 1 ? (
@@ -92,34 +83,32 @@ export default function DeleteConfirm() {
 
         {/* Size breakdown for multiple */}
         {!isProjectMode && targets.length > 1 && (
-          <div style={{ margin: '0 16px 16px', padding: '10px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--color-border)' }}>
+          <div className="mx-4 mb-4 px-3.5 py-2.5 rounded-xl bg-white/3 border border-border">
             {targets.slice(0, 4).map(c => (
-              <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--color-muted)', padding: '3px 0' }}>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>{c.hook || `Klip ${c.clip_index + 1}`}</span>
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-faint)' }}>{fmtDur(c.duration_seconds)}</span>
+              <div key={c.id} className="flex justify-between text-[12px] text-muted py-0.75">
+                <span className="overflow-hidden text-ellipsis whitespace-nowrap max-w-[70%]">{c.hook || `Klip ${c.clip_index + 1}`}</span>
+                <span className="font-mono text-faint">{fmtDur(c.duration_seconds)}</span>
               </div>
             ))}
             {targets.length > 4 && (
-              <div style={{ fontSize: 11.5, color: 'var(--color-faint)', marginTop: 4 }}>+{targets.length - 4} lainnya</div>
+              <div className="text-[11.5px] text-faint mt-1">+{targets.length - 4} lainnya</div>
             )}
           </div>
         )}
 
         {/* Actions */}
-        <div style={{ display: 'flex', gap: 10, padding: '0 16px 18px' }}>
+        <div className="flex gap-2.5 px-4 pb-4.5">
           <button
             onClick={() => dispatch(closeOverlay())}
-            className="btn-ghost"
+            className="btn-ghost flex-1 py-3 rounded-xl text-[14px]"
             disabled={loading}
-            style={{ flex: 1, padding: '12px 0', borderRadius: 12, fontSize: 14 }}
           >
             Batal
           </button>
           <button
             onClick={handleDelete}
-            className="btn-danger"
+            className="btn-danger flex-1 py-3 rounded-xl text-[14px]"
             disabled={loading}
-            style={{ flex: 1, padding: '12px 0', borderRadius: 12, fontSize: 14 }}
           >
             {loading ? <Spinner size={15} /> : <><TrashIcon size={15} weight="bold" /> Hapus</>}
           </button>

@@ -6,5 +6,5 @@ export default function Caret() {
     const id = setInterval(() => setOn(o => !o), 530)
     return () => clearInterval(id)
   }, [])
-  return <span style={{ opacity: on ? 1 : 0 }}>▋</span>
+  return <span className={on ? 'opacity-100' : 'opacity-0'}>▋</span>
 }

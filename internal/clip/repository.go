@@ -134,8 +134,11 @@ type GalleryItem struct {
 // title/url. Ordered newest project first, then clip order within a project.
 func (r *Repository) GetGallery() ([]GalleryItem, error) {
 	var items []GalleryItem
+	// Select the coalesced clip columns (aliased to the joined `clips c`) rather
+	// than `c.*`: nullable TEXT columns like raw_clip_path/subtitle_path can be
+	// NULL even on finished clips and would fail to scan into Clip's strings.
 	err := r.db.Select(&items, `
-		SELECT c.*, v.title AS source_title, v.youtube_url AS source_url
+		SELECT `+galleryClipCols+`, v.title AS source_title, v.youtube_url AS source_url
 		FROM clips c
 		JOIN projects p ON p.id = c.project_id
 		JOIN videos v ON v.id = p.source_video_id
@@ -143,6 +146,33 @@ func (r *Repository) GetGallery() ([]GalleryItem, error) {
 		ORDER BY p.created_at DESC, c.clip_index ASC`)
 	return items, err
 }
+
+// galleryClipCols is the clip column list with every column qualified by the
+// `c` table alias used in the gallery JOIN, and nullable TEXT columns coalesced
+// to '' so scanning into Clip's string fields never fails on NULL.
+const galleryClipCols = `
+	c.id, c.project_id, c.clip_index, c.start_seconds, c.end_seconds, c.duration_seconds,
+	COALESCE(c.speaker, '')             AS speaker,
+	COALESCE(c.hook, '')                AS hook,
+	COALESCE(c.summary, '')             AS summary,
+	COALESCE(c.category, '')            AS category,
+	COALESCE(c.energy_level, '')        AS energy_level,
+	c.viral_score, c.content_score, c.engagement_score,
+	COALESCE(c.thumbnail_text, '')      AS thumbnail_text,
+	COALESCE(c.thumbnail_emotion, '')   AS thumbnail_emotion,
+	c.thumbnail_timestamp,
+	COALESCE(c.suggested_caption, '')   AS suggested_caption,
+	COALESCE(c.transcript_excerpt, '')  AS transcript_excerpt,
+	c.enabled, c.status,
+	COALESCE(c.raw_clip_path, '')       AS raw_clip_path,
+	COALESCE(c.face_data_json, '')      AS face_data_json,
+	COALESCE(c.subtitle_path, '')       AS subtitle_path,
+	COALESCE(c.final_clip_path, '')     AS final_clip_path,
+	c.aspect_ratio, c.caption_style, c.caption_position, c.caption_size,
+	COALESCE(c.caption_text, '')        AS caption_text,
+	c.track_template, c.track_smooth, c.track_lock_main, c.track_sensitivity,
+	COALESCE(c.waveform_path, '')       AS waveform_path,
+	c.favorite, c.created_at, c.updated_at`
 
 func (r *Repository) UpdateTimestamp(id string, start, end int) error {
 	_, err := r.db.Exec(

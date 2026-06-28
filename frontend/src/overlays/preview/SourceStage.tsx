@@ -75,18 +75,13 @@ export default forwardRef<SourceStageHandle, Props>(function SourceStage(
   }, [])
 
   return (
-    <div style={{
-      position: 'relative', borderRadius: 14, overflow: 'hidden',
-      background: '#0a0712', border: '1px solid var(--color-border)',
-      width: '100%', height: '100%',
-    }}>
+    <div className="relative rounded-[14px] overflow-hidden bg-[#0a0712] border border-border w-full h-full">
       {src ? (
         <video
           ref={videoRef}
           src={src}
-          // Kontainer sudah ber-aspect = source, jadi 'fill' mengisi pas tanpa
-          // distorsi & tanpa letterbox → crop box overlay sejajar dengan frame.
-          style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block' }}
+          className="w-full h-full block"
+          style={{ objectFit: 'fill' }}
           preload="metadata"
           onLoadedMetadata={e => {
             const v = e.currentTarget
@@ -94,36 +89,26 @@ export default forwardRef<SourceStageHandle, Props>(function SourceStage(
           }}
         />
       ) : (
-        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-faint)', fontSize: 12 }}>
+        <div className="w-full h-full flex items-center justify-center text-faint text-[12px]">
           Memuat video…
         </div>
       )}
 
-      {/* Crop zone overlays */}
+      {/* Crop zone overlays — positions are runtime % values derived from face data */}
       {showCrop && cropZones.map((zone, i) => (
         <div
           key={i}
+          className="absolute border-2 border-[rgba(123,97,255,0.9)] rounded-sm pointer-events-none overflow-hidden shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
           style={{
-            position: 'absolute',
             left: `${zone.x * 100}%`,
             top: `${zone.y * 100}%`,
             width: `${zone.w * 100}%`,
             height: `${zone.h * 100}%`,
-            border: '2px solid rgba(123,97,255,0.9)',
-            borderRadius: 4,
-            pointerEvents: 'none',
-            boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)',
-            overflow: 'hidden',
             transition: smooth ? 'left 0.18s linear, top 0.18s linear, width 0.18s linear' : 'none',
           }}
         >
           {i === 0 && cropLabel && (
-            <span style={{
-              position: 'absolute', top: 8, left: 8,
-              fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: 0.3,
-              color: 'var(--color-accent-hi)', background: 'rgba(10,7,18,0.75)',
-              padding: '2px 6px', borderRadius: 4, whiteSpace: 'nowrap',
-            }}>
+            <span className="absolute top-2 left-2 font-mono text-[9px] tracking-[0.3px] text-accent-hi bg-[rgba(10,7,18,0.75)] px-1.5 py-0.5 rounded-sm whitespace-nowrap">
               {cropLabel}
             </span>
           )}

@@ -254,10 +254,6 @@ export function RegenerateSubtitle(arg1) {
   return window['go']['main']['App']['RegenerateSubtitle'](arg1);
 }
 
-export function RegenerateSubtitle(arg1) {
-  return window['go']['main']['App']['RegenerateSubtitle'](arg1);
-}
-
 export function RemoveClip(arg1) {
   return window['go']['main']['App']['RemoveClip'](arg1);
 }

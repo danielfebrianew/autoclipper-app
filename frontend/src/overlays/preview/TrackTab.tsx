@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
 import { SetClipTrackTemplate, SetClipTrackOpts, RetrackFaces } from '../../../wailsjs/go/main/App'
 import { toastError, toastSuccess } from '../../lib/toast'
+import { cn } from '../../lib/cn'
 
 const TEMPLATES = [
   {
@@ -72,30 +73,29 @@ export default function TrackTab({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div className="flex flex-col gap-4.5">
 
       {/* Template grid */}
       <section>
         <Label>Template track</Label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+        <div className="grid grid-cols-2 gap-1.5">
           {TEMPLATES.map(t => (
             <button
               key={t.id}
               onClick={() => handleTemplate(t.id)}
-              style={{
-                display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 10px 8px',
-                borderRadius: 10, cursor: 'pointer', textAlign: 'left',
-                background: template === t.id ? 'rgba(123,97,255,0.18)' : 'rgba(255,255,255,0.04)',
-                border: template === t.id ? '1px solid var(--color-accent-lo)' : '1px solid transparent',
-                transition: 'background 0.15s',
-              }}
+              className={cn(
+                'flex flex-col gap-1.5 p-2.5 pb-2 rounded-[10px] cursor-pointer text-left border transition-[background] duration-150',
+                template === t.id
+                  ? 'bg-[rgba(123,97,255,0.18)] border-accent-lo'
+                  : 'bg-white/4 border-transparent',
+              )}
             >
-              <pre style={{ margin: 0, fontSize: 8, lineHeight: 1.3, color: template === t.id ? 'var(--color-accent-hi)' : 'var(--color-faint)', fontFamily: 'var(--font-mono)' }}>
+              <pre className={cn('m-0 text-[8px] leading-[1.3] font-mono', template === t.id ? 'text-accent-hi' : 'text-faint')}>
                 {t.diagram}
               </pre>
               <div>
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--color-text)' }}>{t.label}</div>
-                <div style={{ fontSize: 10, color: 'var(--color-faint)' }}>{t.desc}</div>
+                <div className="text-[11.5px] font-bold text-text">{t.label}</div>
+                <div className="text-[10px] text-faint">{t.desc}</div>
               </div>
             </button>
           ))}
@@ -105,7 +105,7 @@ export default function TrackTab({
       {/* Options */}
       <section>
         <Label>Opsi</Label>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="flex flex-col gap-2.5">
           <ToggleRow label="Smooth gerakan" value={smooth} onChange={v => handleOpts({ smooth: v })} />
           <ToggleRow label="Lock pembicara utama" value={lockMain} onChange={v => handleOpts({ lockMain: v })} />
         </div>
@@ -113,16 +113,17 @@ export default function TrackTab({
 
       {/* Sensitivity */}
       <section>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div className="flex justify-between mb-2">
           <Label>Sensitivitas</Label>
-          <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-accent-hi)' }}>{sensitivity}</span>
+          <span className="text-[11px] font-mono text-accent-hi">{sensitivity}</span>
         </div>
         <input
           type="range" min={0} max={100} value={sensitivity}
           onChange={e => handleOpts({ sensitivity: Number(e.target.value) })}
-          style={{ width: '100%', accentColor: 'var(--color-accent-hi)' }}
+          className="w-full"
+          style={{ accentColor: 'var(--color-accent-hi)' }}
         />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--color-faint)', marginTop: 4 }}>
+        <div className="flex justify-between text-[10px] text-faint mt-1">
           <span>Lambat</span><span>Cepat</span>
         </div>
       </section>
@@ -131,10 +132,12 @@ export default function TrackTab({
       <button
         onClick={handleRetrack}
         disabled={retracking}
-        className="btn-primary"
-        style={{ width: '100%', padding: '10px 0', borderRadius: 10, fontSize: 13, gap: 7 }}
+        className="btn-primary w-full py-2.5 rounded-[10px] text-[13px] gap-1.75"
       >
-        <ArrowsClockwiseIcon size={14} style={{ animation: retracking ? 'spin 0.8s linear infinite' : 'none' }} />
+        <ArrowsClockwiseIcon
+          size={14}
+          className={retracking ? 'animate-[spin_0.8s_linear_infinite]' : undefined}
+        />
         {retracking ? 'Memproses track…' : 'Re-track Wajah'}
       </button>
     </div>
@@ -142,14 +145,18 @@ export default function TrackTab({
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--color-faint)', marginBottom: 0 }}>{children}</div>
+  return (
+    <div className="text-[10.5px] font-bold tracking-[0.5px] uppercase text-faint">
+      {children}
+    </div>
+  )
 }
 
 function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <span style={{ fontSize: 12.5, color: 'var(--color-muted)' }}>{label}</span>
-      <button onClick={() => onChange(!value)} className={`toggle ${value ? 'on' : ''}`} style={{ flexShrink: 0 }} />
+    <div className="flex items-center justify-between">
+      <span className="text-[12.5px] text-muted">{label}</span>
+      <button onClick={() => onChange(!value)} className={cn('toggle shrink-0', value && 'on')} />
     </div>
   )
 }

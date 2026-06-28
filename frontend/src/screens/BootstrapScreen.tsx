@@ -8,6 +8,7 @@ import { setScreen } from '../store/slices/uiSlice'
 import Glow from '../components/primitives/Glow'
 import Caret from '../components/primitives/Caret'
 import Spinner from '../components/primitives/Spinner'
+import { cn } from '../lib/cn'
 
 interface Dep { name: string; status: string; message: string; size?: number; unit?: string; icon?: string }
 interface SetupProgress { name: string; status: string; progress: number; message: string }
@@ -69,33 +70,28 @@ export default function BootstrapScreen() {
   const isDone = done || allOk
 
   return (
-    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+    <div className="absolute inset-0 flex flex-col items-center justify-center p-10">
       <Glow x="18%" y="12%" size={460} color="rgba(123,97,255,0.20)" />
       <Glow x="64%" y="58%" size={420} color="rgba(80,60,170,0.16)" />
 
-      <div style={{ width: 560, maxWidth: '100%', position: 'relative', zIndex: 2, fontFamily: 'var(--font-ui)' }}>
+      <div className="w-140 max-w-full relative z-2 font-ui">
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 26 }}>
-          <div style={{
-            width: 46, height: 46, borderRadius: 13, flexShrink: 0,
-            background: 'linear-gradient(160deg, var(--color-accent-hi), var(--color-accent-lo))',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 10px 30px -8px var(--color-accent-glow)',
-          }}>
+        <div className="flex items-center gap-3.5 mb-6.5">
+          <div className="w-11.5 h-11.5 rounded-[13px] shrink-0 bg-[linear-gradient(160deg,var(--color-accent-hi),var(--color-accent-lo))] flex items-center justify-center shadow-[0_10px_30px_-8px_var(--color-accent-glow)]">
             <SparkleIcon size={24} color="#fff" weight="fill" />
           </div>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.4, color: 'var(--color-text)' }}>
+            <div className="text-[22px] font-extrabold tracking-[-0.4px] text-text">
               {isDone ? 'Auto Clipper siap dipakai' : 'Menyiapkan Auto Clipper'}
             </div>
-            <div style={{ fontSize: 13.5, color: 'var(--color-muted)', marginTop: 2 }}>
+            <div className="text-[13.5px] text-muted mt-0.5">
               {isDone ? 'Semua komponen terpasang di ~/.autoclipper' : 'Sekali saja — mengunduh & memasang komponen yang dibutuhkan.'}
             </div>
           </div>
         </div>
 
         {/* Dep list */}
-        <div className="glass" style={{ borderRadius: 18, padding: 10 }}>
+        <div className="glass rounded-[18px] p-2.5">
           {deps.map(dep => {
             const prog = progress[dep.name]
             const status = prog?.status ?? dep.status
@@ -105,16 +101,23 @@ export default function BootstrapScreen() {
             const IconComp = dep.icon ? (ICON_MAP[dep.icon] ?? DownloadSimpleIcon) : DownloadSimpleIcon
 
             return (
-              <div key={dep.name} style={{
-                display: 'flex', alignItems: 'center', gap: 13, padding: '13px 12px',
-                borderRadius: 12, background: active ? 'rgba(255,255,255,0.03)' : 'transparent',
-              }}>
-                <span style={{
-                  width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: dDone ? 'rgba(84,214,160,0.14)' : active ? 'var(--color-accent-soft)' : 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${dDone ? 'rgba(84,214,160,0.3)' : active ? 'var(--color-accent-line)' : 'var(--color-border)'}`,
-                }}>
+              <div
+                key={dep.name}
+                className={cn(
+                  'flex items-center gap-3.25 px-3 py-3.25 rounded-xl',
+                  active ? 'bg-white/3' : 'bg-transparent',
+                )}
+              >
+                <span
+                  className={cn(
+                    'w-9 h-9 rounded-[10px] shrink-0 flex items-center justify-center border',
+                    dDone
+                      ? 'bg-[rgba(84,214,160,0.14)] border-[rgba(84,214,160,0.3)]'
+                      : active
+                      ? 'bg-accent-soft border-accent-line'
+                      : 'bg-white/5 border-border',
+                  )}
+                >
                   {dDone
                     ? <CheckIcon size={17} color="var(--color-good)" weight="bold" />
                     : active
@@ -122,25 +125,32 @@ export default function BootstrapScreen() {
                     : <IconComp size={16} color={active ? 'var(--color-accent-hi)' : 'var(--color-muted)'} />
                   }
                 </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600, color: 'var(--color-text)' }}>{dep.name}</span>
-                    <span style={{ fontSize: 12, color: 'var(--color-faint)' }}>{dep.message}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono text-[13px] font-semibold text-text">{dep.name}</span>
+                    <span className="text-[12px] text-faint">{dep.message}</span>
                     {dep.size != null && (
-                      <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-faint)' }}>
+                      <span className="ml-auto font-mono text-[11px] text-faint">
                         {dep.size} {dep.unit ?? 'MB'}
                       </span>
                     )}
                   </div>
-                  <div style={{ marginTop: 8, height: 4, borderRadius: 3, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%', width: `${dDone ? 100 : active ? pct : 0}%`,
-                      borderRadius: 3, background: dDone ? 'var(--color-good)' : 'linear-gradient(90deg, var(--color-accent-lo), var(--color-accent-hi))',
-                      transition: 'width .2s',
-                    }} />
+                  <div className="mt-2 h-1 rounded-[3px] bg-white/7 overflow-hidden">
+                    <div
+                      className={cn(
+                        'h-full rounded-[3px] transition-[width] duration-200',
+                        dDone ? 'bg-good' : 'bg-[linear-gradient(90deg,var(--color-accent-lo),var(--color-accent-hi))]',
+                      )}
+                      style={{ width: `${dDone ? 100 : active ? pct : 0}%` }}
+                    />
                   </div>
                 </div>
-                <span style={{ width: 92, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 10.5, color: dDone ? 'var(--color-good)' : active ? 'var(--color-accent-hi)' : 'var(--color-faint)' }}>
+                <span
+                  className={cn(
+                    'w-23 text-right font-mono text-[10.5px]',
+                    dDone ? 'text-good' : active ? 'text-accent-hi' : 'text-faint',
+                  )}
+                >
                   {dDone ? 'terpasang' : active ? (pct > 90 ? 'memasang…' : `${Math.round(pct)}%`) : 'menunggu'}
                 </span>
               </div>
@@ -149,56 +159,60 @@ export default function BootstrapScreen() {
         </div>
 
         {/* Log toggle */}
-        <div style={{ marginTop: 16 }}>
+        <div className="mt-4">
           <button
             onClick={() => setShowLog(s => !s)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: 'var(--color-muted)', fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}
+            className="inline-flex items-center gap-1.5 bg-transparent border-none text-muted font-ui text-[12px] font-semibold cursor-pointer p-0"
           >
             {showLog ? '▾' : '▸'} Log instalasi
           </button>
           {showLog && (
-            <div style={{
-              marginTop: 10, height: 116, overflow: 'hidden', borderRadius: 12,
-              background: 'rgba(0,0,0,0.34)', border: '1px solid var(--color-border-soft)',
-              padding: '10px 13px', fontFamily: 'var(--font-mono)', fontSize: 11, lineHeight: 1.7,
-              display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-            }}>
+            <div className="mt-2.5 h-29 overflow-hidden rounded-xl bg-black/34 border border-border-soft px-3.25 py-2.5 font-mono text-[11px] leading-[1.7] flex flex-col justify-end">
               {(logLines.length > 0 ? logLines : (running ? INSTALL_LOG.slice(0, 3) : [])).map((l, i) => (
-                <div key={i} style={{ color: l.includes('✓') || l.includes('ok') ? 'var(--color-good)' : 'var(--color-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  <span style={{ color: 'var(--color-faint)' }}>$</span> {l}
+                <div
+                  key={i}
+                  className={cn(
+                    'whitespace-nowrap overflow-hidden text-ellipsis',
+                    l.includes('✓') || l.includes('ok') ? 'text-good' : 'text-muted',
+                  )}
+                >
+                  <span className="text-faint">$</span> {l}
                 </div>
               ))}
-              {running && <div style={{ color: 'var(--color-accent-hi)' }}><span style={{ color: 'var(--color-faint)' }}>$</span> <Caret /></div>}
+              {running && (
+                <div className="text-accent-hi">
+                  <span className="text-faint">$</span> <Caret />
+                </div>
+              )}
             </div>
           )}
         </div>
 
         {error && (
-          <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,107,102,0.1)', border: '1px solid rgba(255,107,102,0.3)', fontSize: 12, color: 'var(--color-bad)' }}>
+          <div className="mt-3 px-3.5 py-2.5 rounded-[10px] bg-[rgba(255,107,102,0.1)] border border-[rgba(255,107,102,0.3)] text-[12px] text-bad">
             {error}
           </div>
         )}
 
         {/* Action */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 22 }}>
-          <span style={{ fontSize: 12.5, color: 'var(--color-faint)' }}>
+        <div className="flex items-center gap-3.5 mt-5.5">
+          <span className="text-[12.5px] text-faint">
             {isDone ? 'Komponen lokal, berjalan offline setelah ini.' : 'Jangan tutup jendela selama proses berlangsung.'}
           </span>
-          <div style={{ flex: 1 }} />
+          <div className="flex-1" />
           {isDone ? (
             <button
               onClick={() => dispatch(setScreen('activation'))}
-              className="btn-primary"
-              style={{ padding: '12px 22px', borderRadius: 12, fontSize: 14 }}
+              className="btn-primary px-5.5 py-3 rounded-xl text-[14px]"
             >
               Lanjut ke aktivasi <ArrowRightIcon size={16} weight="bold" />
             </button>
           ) : error ? (
-            <button onClick={handleSetup} className="btn-primary" style={{ padding: '12px 22px', borderRadius: 12, fontSize: 14 }}>
+            <button onClick={handleSetup} className="btn-primary px-5.5 py-3 rounded-xl text-[14px]">
               Coba lagi
             </button>
           ) : (
-            <button onClick={handleSetup} disabled={running} className="btn-primary" style={{ padding: '12px 22px', borderRadius: 12, fontSize: 14 }}>
+            <button onClick={handleSetup} disabled={running} className="btn-primary px-5.5 py-3 rounded-xl text-[14px]">
               {running ? <><Spinner />Memasang…</> : 'Install Dependency'}
             </button>
           )}

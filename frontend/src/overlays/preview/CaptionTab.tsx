@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
 import { SetClipCaptionStyle, SetClipCaptionOpts, SaveCaption, RegenerateCaption, RegenerateSubtitle } from '../../../wailsjs/go/main/App'
 import { toastError, toastSuccess } from '../../lib/toast'
+import { cn } from '../../lib/cn'
 
 const PRESETS = [
   { id: 'bold',  label: 'Bold',  desc: 'Tebal, shadow kuat',  color: '#fff', bg: 'transparent', shadow: '0 2px 8px rgba(0,0,0,0.9)' },
@@ -69,9 +70,6 @@ export default function CaptionTab({
     }
   }
 
-  // Regenerasi subtitle ber-timing (menit:detik per kata) dari transkrip audio
-  // lewat faster-whisper — TANPA LLM. Mengosongkan caption override agar subtitle
-  // otomatis yang dipakai saat render berikutnya.
   async function handleRegenerateSubtitle() {
     setRegenSubs(true)
     try {
@@ -89,110 +87,112 @@ export default function CaptionTab({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div className="flex flex-col gap-4.5">
 
       {/* Preset cards */}
       <section>
         <Label>Gaya caption</Label>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="flex flex-col gap-1.5">
           {PRESETS.map(p => (
             <button
               key={p.id}
               onClick={() => handlePreset(p.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
-                borderRadius: 10, cursor: 'pointer', textAlign: 'left', width: '100%',
-                background: preset === p.id ? 'rgba(123,97,255,0.18)' : 'rgba(255,255,255,0.04)',
-                border: preset === p.id ? '1px solid var(--color-accent-lo)' : '1px solid transparent',
-                transition: 'background 0.15s',
-              }}
+              className={cn(
+                'flex items-center gap-2.5 px-3 py-2.25 rounded-[10px] cursor-pointer text-left w-full transition-[background] duration-150',
+                preset === p.id
+                  ? 'bg-[rgba(123,97,255,0.18)] border border-accent-lo'
+                  : 'bg-[rgba(255,255,255,0.04)] border border-transparent',
+              )}
             >
               {/* Mini preview */}
-              <div style={{
-                width: 48, height: 28, borderRadius: 5, overflow: 'hidden',
-                background: 'linear-gradient(135deg,#1a1030,#0d0820)',
-                display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-                padding: 2, flexShrink: 0,
-              }}>
-                <span style={{
-                  fontSize: 7, fontWeight: 800, color: p.color,
-                  background: p.bg, textShadow: p.shadow, padding: '1px 4px', borderRadius: 3,
-                  whiteSpace: 'nowrap',
-                }}>
+              <div className="w-12 h-7 rounded-[5px] overflow-hidden bg-[linear-gradient(135deg,#1a1030,#0d0820)] flex items-end justify-center p-0.5 shrink-0">
+                <span
+                  className="text-[7px] font-extrabold whitespace-nowrap px-1 py-px rounded-sm"
+                  style={{ color: p.color, background: p.bg, textShadow: p.shadow }}
+                >
                   Caption
                 </span>
               </div>
               <div>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--color-text)' }}>{p.label}</div>
-                <div style={{ fontSize: 10.5, color: 'var(--color-faint)' }}>{p.desc}</div>
+                <div className="text-[12.5px] font-bold text-text">{p.label}</div>
+                <div className="text-[10.5px] text-faint">{p.desc}</div>
               </div>
             </button>
           ))}
         </div>
       </section>
 
-      {/* Position + Size */}
+      {/* Position */}
       <section>
         <Label>Posisi</Label>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div className="flex gap-1.5">
           {POSITIONS.map(p => (
-            <button key={p} onClick={() => handlePosition(p)}
-              className={`chip ${position === p ? 'active' : ''}`}
-              style={{ flex: 1, padding: '7px 0', fontSize: 12, justifyContent: 'center', borderRadius: 9 }}>
+            <button
+              key={p}
+              onClick={() => handlePosition(p)}
+              className={cn('chip flex-1 py-1.75 text-xs justify-center rounded-[9px]', position === p && 'active')}
+            >
               {p === 'top' ? 'Atas' : p === 'mid' ? 'Tengah' : 'Bawah'}
             </button>
           ))}
         </div>
       </section>
 
+      {/* Size */}
       <section>
         <Label>Ukuran</Label>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div className="flex gap-1.5">
           {SIZES.map(s => (
-            <button key={s} onClick={() => handleSize(s)}
-              className={`chip ${size === s ? 'active' : ''}`}
-              style={{ flex: 1, padding: '7px 0', fontSize: 13, fontWeight: 700, justifyContent: 'center', borderRadius: 9 }}>
+            <button
+              key={s}
+              onClick={() => handleSize(s)}
+              className={cn('chip flex-1 py-1.75 text-[13px] font-bold justify-center rounded-[9px]', size === s && 'active')}
+            >
               {s}
             </button>
           ))}
         </div>
       </section>
 
-      {/* Subtitle ber-timing (per kata) dari transkrip */}
+      {/* Subtitle ber-timing */}
       <section>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div className="flex items-center justify-between mb-2">
           <Label>Subtitle (ikut ucapan)</Label>
           <button
             onClick={handleRegenerateSubtitle}
             disabled={regenSubs}
-            className="btn-ghost"
-            style={{ padding: '5px 10px', fontSize: 11.5, gap: 5, borderRadius: 8 }}
+            className="btn-ghost px-2.5 py-1.25 text-[11.5px] gap-1.25 rounded-lg"
           >
-            <ArrowsClockwiseIcon size={13} style={{ animation: regenSubs ? 'spin 0.8s linear infinite' : 'none' }} />
+            <ArrowsClockwiseIcon
+              size={13}
+              className={regenSubs ? 'animate-spin' : undefined}
+            />
             {regenSubs ? 'Memproses…' : 'Regenerasi subtitle'}
           </button>
         </div>
-        <p style={{ fontSize: 10.5, color: 'var(--color-faint)', lineHeight: 1.5, margin: 0 }}>
+        <p className="text-[10.5px] text-faint leading-normal m-0">
           Bangun ulang subtitle ber-timing per kata (menit:detik) langsung dari audio
           lewat faster-whisper — tanpa AI/Gemini. Mengganti caption manual di bawah jika ada.
         </p>
       </section>
 
-      {/* Caption manual (override seluruh subtitle dengan satu teks statis) */}
+      {/* Caption manual */}
       <section>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div className="flex items-center justify-between mb-2">
           <Label>Caption manual (opsional)</Label>
           <button
             onClick={handleRegenerate}
             disabled={regenerating}
-            className="btn-ghost"
-            style={{ padding: '5px 10px', fontSize: 11.5, gap: 5, borderRadius: 8 }}
+            className="btn-ghost px-2.5 py-1.25 text-[11.5px] gap-1.25 rounded-lg"
           >
-            <ArrowsClockwiseIcon size={13} style={{ animation: regenerating ? 'spin 0.8s linear infinite' : 'none' }} />
+            <ArrowsClockwiseIcon
+              size={13}
+              className={regenerating ? 'animate-spin' : undefined}
+            />
             {regenerating ? 'Memproses…' : 'Buat dgn AI'}
           </button>
         </div>
-        <p style={{ fontSize: 10.5, color: 'var(--color-faint)', lineHeight: 1.5, margin: '0 0 8px' }}>
+        <p className="text-[10.5px] text-faint leading-normal mb-2 mt-0">
           Kosongkan untuk pakai subtitle ber-timing di atas. Isi untuk menimpa seluruh
           subtitle dengan satu teks statis sepanjang clip.
         </p>
@@ -201,12 +201,7 @@ export default function CaptionTab({
           onChange={e => handleText(e.target.value)}
           rows={5}
           placeholder="Kosong = subtitle ber-timing dari transkrip…"
-          style={{
-            width: '100%', resize: 'vertical', borderRadius: 10, padding: '10px 12px',
-            background: 'rgba(255,255,255,0.05)', border: '1px solid var(--color-border)',
-            color: 'var(--color-text)', fontSize: 12.5, lineHeight: 1.6,
-            fontFamily: 'var(--font-ui)', boxSizing: 'border-box',
-          }}
+          className="w-full resize-y rounded-[10px] px-3 py-2.5 bg-[rgba(255,255,255,0.05)] border border-border text-text text-[12.5px] leading-relaxed font-ui box-border"
         />
       </section>
     </div>
@@ -214,5 +209,9 @@ export default function CaptionTab({
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--color-faint)', marginBottom: 8 }}>{children}</div>
+  return (
+    <div className="text-[10.5px] font-bold tracking-[0.5px] uppercase text-faint mb-2">
+      {children}
+    </div>
+  )
 }

@@ -1,5 +1,6 @@
 import { Clip } from '../../store/slices/clipSlice'
 import { SetClipAspectRatio } from '../../../wailsjs/go/main/App'
+import { cn } from '../../lib/cn'
 
 const RATIOS = ['9:16', '1:1', '4:5']
 
@@ -34,12 +35,12 @@ export default function EditTab({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div className="flex flex-col gap-4.5">
 
       {/* Trim info */}
       <section>
         <Label>Durasi terpilih</Label>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="flex gap-2">
           <InfoBox label="IN" value={fmt(inPoint)} />
           <InfoBox label="OUT" value={fmt(outPoint)} />
           <InfoBox label="Dur" value={fmt(dur)} accent />
@@ -49,13 +50,12 @@ export default function EditTab({
       {/* Aspect ratio */}
       <section>
         <Label>Rasio output</Label>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div className="flex gap-1.5">
           {RATIOS.map(r => (
             <button
               key={r}
               onClick={() => handleRatio(r)}
-              className={`chip ${ratio === r ? 'active' : ''}`}
-              style={{ flex: 1, padding: '8px 0', fontSize: 12.5, justifyContent: 'center', borderRadius: 10 }}
+              className={cn('chip flex-1 py-2 text-[12.5px] justify-center rounded-[10px]', ratio === r && 'active')}
             >
               {r}
             </button>
@@ -66,29 +66,29 @@ export default function EditTab({
       {/* Preview toggles */}
       <section>
         <Label>Preview overlay</Label>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="flex flex-col gap-2">
           <ToggleRow label="Tampilkan face-track" value={showCrop} onChange={onShowCropChange} />
           <ToggleRow label="Tampilkan caption" value={showCaption} onChange={onShowCaptionChange} />
         </div>
       </section>
 
-      <div style={{ height: 1, background: 'var(--color-border-soft)' }} />
+      <div className="h-px bg-border-soft" />
 
       {/* Clip info */}
       <section>
         <Label>Hook</Label>
-        <p style={{ fontSize: 13, color: 'var(--color-text)', lineHeight: 1.55, margin: 0 }}>{clip.hook}</p>
+        <p className="text-[13px] text-text leading-[1.55] m-0">{clip.hook}</p>
       </section>
       <section>
         <Label>Ringkasan</Label>
-        <p style={{ fontSize: 12.5, color: 'var(--color-muted)', lineHeight: 1.6, margin: 0 }}>{clip.summary}</p>
+        <p className="text-[12.5px] text-muted leading-[1.6] m-0">{clip.summary}</p>
       </section>
       <section>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="flex gap-2">
           {([['Viral', clip.viral_score], ['Konten', clip.content_score], ['Engage', clip.engagement_score]] as [string, number][]).map(([l, v]) => (
-            <div key={l} style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 10px 8px', textAlign: 'center' }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--color-accent-hi)', fontFamily: 'var(--font-mono)' }}>{v}</div>
-              <div style={{ fontSize: 10, color: 'var(--color-faint)', marginTop: 3 }}>{l}</div>
+            <div key={l} className="flex-1 bg-white/4 rounded-[10px] px-2.5 pt-2.5 pb-2 text-center">
+              <div className="text-[16px] font-extrabold text-accent-hi font-mono">{v}</div>
+              <div className="text-[10px] text-faint mt-0.75">{l}</div>
             </div>
           ))}
         </div>
@@ -96,7 +96,7 @@ export default function EditTab({
       {clip.transcript_excerpt && (
         <section>
           <Label>Transkrip</Label>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-muted)', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{clip.transcript_excerpt}</p>
+          <p className="font-mono text-[11px] text-muted leading-[1.7] m-0 whitespace-pre-wrap">{clip.transcript_excerpt}</p>
         </section>
       )}
     </div>
@@ -104,26 +104,29 @@ export default function EditTab({
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--color-faint)', marginBottom: 8 }}>{children}</div>
+  return (
+    <div className="text-[10.5px] font-bold tracking-[0.5px] uppercase text-faint mb-2">
+      {children}
+    </div>
+  )
 }
 
 function InfoBox({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '8px 8px 6px', textAlign: 'center' }}>
-      <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: accent ? 'var(--color-accent-hi)' : 'var(--color-text)' }}>{value}</div>
-      <div style={{ fontSize: 10, color: 'var(--color-faint)', marginTop: 2 }}>{label}</div>
+    <div className="flex-1 bg-white/4 rounded-lg px-2 pt-2 pb-1.5 text-center">
+      <div className={cn('text-[13px] font-bold font-mono', accent ? 'text-accent-hi' : 'text-text')}>{value}</div>
+      <div className="text-[10px] text-faint mt-0.5">{label}</div>
     </div>
   )
 }
 
 function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <span style={{ fontSize: 12.5, color: 'var(--color-muted)' }}>{label}</span>
+    <div className="flex items-center justify-between">
+      <span className="text-[12.5px] text-muted">{label}</span>
       <button
         onClick={() => onChange(!value)}
-        className={`toggle ${value ? 'on' : ''}`}
-        style={{ flexShrink: 0 }}
+        className={cn('toggle shrink-0', value && 'on')}
       />
     </div>
   )

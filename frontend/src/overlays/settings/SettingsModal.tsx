@@ -10,6 +10,7 @@ import {
 } from '../../store/slices/settingsSlice'
 import Spinner from '../../components/primitives/Spinner'
 import { toastSuccess, toastError, errText } from '../../lib/toast'
+import { cn } from '../../lib/cn'
 
 type Tab = 'apikeys' | 'model' | 'storage' | 'general' | 'about'
 
@@ -23,17 +24,16 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
 
 function FieldRow({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20, padding: '16px 0', borderBottom: '1px solid var(--color-border-soft)' }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--color-text)' }}>{label}</div>
-        {description && <div style={{ fontSize: 12, color: 'var(--color-muted)', marginTop: 3, lineHeight: 1.5 }}>{description}</div>}
+    <div className="flex items-start gap-5 py-4 border-b border-border-soft">
+      <div className="flex-1">
+        <div className="text-[13.5px] font-semibold text-text">{label}</div>
+        {description && <div className="text-[12px] text-muted mt-0.75 leading-normal">{description}</div>}
       </div>
-      <div style={{ flexShrink: 0, minWidth: 240 }}>{children}</div>
+      <div className="shrink-0 min-w-60">{children}</div>
     </div>
   )
 }
 
-/** One API-key field with show/hide toggle + "Uji" button bound to TestProviderKey. */
 function ApiKeyField({
   providerId, value, onChange,
 }: { providerId: string; value: string; onChange: (v: string) => void }) {
@@ -53,20 +53,19 @@ function ApiKeyField({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ display: 'flex', gap: 6 }}>
-        <div style={{ position: 'relative', flex: 1 }}>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex gap-1.5">
+        <div className="relative flex-1">
           <input
-            className="field"
+            className="field w-full py-2.25 pl-3 pr-9 rounded-[10px] text-[13px]"
             type={show ? 'text' : 'password'}
             value={value}
             onChange={e => onChange(e.target.value)}
             placeholder="••••••••••"
-            style={{ width: '100%', padding: '9px 36px 9px 12px', borderRadius: 10, fontSize: 13 }}
           />
           <button
             onClick={() => setShow(s => !s)}
-            style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-none border-none cursor-pointer flex"
           >
             {show ? <EyeSlashIcon size={15} color="var(--color-muted)" /> : <EyeIcon size={15} color="var(--color-muted)" />}
           </button>
@@ -74,14 +73,13 @@ function ApiKeyField({
         <button
           onClick={handleTest}
           disabled={status?.testing}
-          className="btn-ghost"
-          style={{ padding: '0 14px', borderRadius: 10, fontSize: 12.5, minWidth: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          className="btn-ghost px-3.5 rounded-[10px] text-[12.5px] min-w-14 flex items-center justify-center"
         >
           {status?.testing ? <Spinner size={13} /> : 'Uji'}
         </button>
       </div>
       {status && !status.testing && status.message && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: status.connected ? 'var(--color-good)' : 'var(--color-bad)' }}>
+        <div className={cn('flex items-center gap-1.25 text-[11.5px]', status.connected ? 'text-good' : 'text-bad')}>
           {status.connected ? <CheckCircleIcon size={13} weight="fill" /> : <XCircleIcon size={13} weight="fill" />}
           {status.message}
         </div>
@@ -97,13 +95,13 @@ function ApiKeysTab() {
   const set = (patch: any) => dispatch(patchSettings(patch))
   return (
     <div>
-      <FieldRow label="KIE.ai API KeyIcon" description="Utama — analisis klip & caption via Gemini di Kie.ai.">
+      <FieldRow label="KIE.ai API Key" description="Utama — analisis klip & caption via Gemini di Kie.ai.">
         <ApiKeyField providerId="kie" value={data.kie_api_key} onChange={v => set({ kie_api_key: v })} />
       </FieldRow>
-      <FieldRow label="Gemini API KeyIcon" description="Opsional — Google AI Studio langsung (cadangan).">
+      <FieldRow label="Gemini API Key" description="Opsional — Google AI Studio langsung (cadangan).">
         <ApiKeyField providerId="gemini" value={data.gemini_api_key} onChange={v => set({ gemini_api_key: v })} />
       </FieldRow>
-      <FieldRow label="OpenAI API KeyIcon" description="Opsional — penggunaan mendatang.">
+      <FieldRow label="OpenAI API Key" description="Opsional — penggunaan mendatang.">
         <ApiKeyField providerId="openai" value={data.openai_api_key} onChange={v => set({ openai_api_key: v })} />
       </FieldRow>
     </div>
@@ -118,20 +116,20 @@ function ModelTab() {
   return (
     <div>
       <FieldRow label="Model Gemini" description="Model LLM untuk analisis klip.">
-        <input className="field" value={data.gemini_model} onChange={e => set({ gemini_model: e.target.value })}
-          style={{ width: '100%', padding: '9px 12px', borderRadius: 10, fontSize: 13 }} />
+        <input className="field w-full py-2.25 px-3 rounded-[10px] text-[13px]"
+          value={data.gemini_model} onChange={e => set({ gemini_model: e.target.value })} />
       </FieldRow>
       <FieldRow label="Engine transkrip" description="Sumber transkrip video.">
-        <select className="field" value={data.transcript_engine} onChange={e => set({ transcript_engine: e.target.value })}
-          style={{ width: '100%', padding: '9px 12px', borderRadius: 10, fontSize: 13, color: 'var(--color-text)' }}>
+        <select className="field w-full py-2.25 px-3 rounded-[10px] text-[13px] text-text"
+          value={data.transcript_engine} onChange={e => set({ transcript_engine: e.target.value })}>
           <option value="youtube">YouTube Transcript</option>
           <option value="whisper">Whisper (lokal)</option>
         </select>
       </FieldRow>
       <FieldRow label="Auto-reframe" description="Otomatis crop 9:16 mengikuti wajah.">
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+        <label className="flex items-center gap-2.5 cursor-pointer">
           <input type="checkbox" checked={data.auto_reframe} onChange={e => set({ auto_reframe: e.target.checked })} />
-          <span style={{ fontSize: 13, color: 'var(--color-muted)' }}>Aktifkan</span>
+          <span className="text-[13px] text-muted">Aktifkan</span>
         </label>
       </FieldRow>
     </div>
@@ -146,17 +144,18 @@ function StorageTab() {
   return (
     <div>
       <FieldRow label="Direktori output" description="Klip yang sudah di-render disimpan di sini.">
-        <input className="field" value={data.output_dir} onChange={e => set({ output_dir: e.target.value })}
-          placeholder="~/AutoClipper Output" style={{ width: '100%', padding: '9px 12px', borderRadius: 10, fontSize: 12, fontFamily: 'var(--font-mono)' }} />
+        <input className="field w-full py-2.25 px-3 rounded-[10px] text-[12px] font-mono"
+          value={data.output_dir} onChange={e => set({ output_dir: e.target.value })}
+          placeholder="~/AutoClipper Output" />
       </FieldRow>
       <FieldRow label="Batas penyimpanan (GB)" description="Untuk bar progress penyimpanan.">
-        <input className="field" type="number" value={data.storage_limit_gb} onChange={e => set({ storage_limit_gb: Number(e.target.value) })}
-          style={{ width: '100%', padding: '9px 12px', borderRadius: 10, fontSize: 13 }} />
+        <input className="field w-full py-2.25 px-3 rounded-[10px] text-[13px]"
+          type="number" value={data.storage_limit_gb} onChange={e => set({ storage_limit_gb: Number(e.target.value) })} />
       </FieldRow>
       <FieldRow label="Hapus source otomatis" description="Hapus video sumber setelah klip diekspor.">
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+        <label className="flex items-center gap-2.5 cursor-pointer">
           <input type="checkbox" checked={data.delete_source_after} onChange={e => set({ delete_source_after: e.target.checked })} />
-          <span style={{ fontSize: 13, color: 'var(--color-muted)' }}>Aktifkan</span>
+          <span className="text-[13px] text-muted">Aktifkan</span>
         </label>
       </FieldRow>
     </div>
@@ -171,35 +170,35 @@ function GeneralTab() {
   return (
     <div>
       <FieldRow label="Bahasa antarmuka" description="Bahasa tampilan aplikasi.">
-        <select className="field" value={data.ui_language} onChange={e => set({ ui_language: e.target.value })}
-          style={{ width: '100%', padding: '9px 12px', borderRadius: 10, fontSize: 13, color: 'var(--color-text)' }}>
+        <select className="field w-full py-2.25 px-3 rounded-[10px] text-[13px] text-text"
+          value={data.ui_language} onChange={e => set({ ui_language: e.target.value })}>
           <option value="id">Indonesia</option>
           <option value="en">English</option>
         </select>
       </FieldRow>
       <FieldRow label="Bahasa transkrip" description="Bahasa untuk transkripsi & analisis.">
-        <select className="field" value={data.transcript_language} onChange={e => set({ transcript_language: e.target.value })}
-          style={{ width: '100%', padding: '9px 12px', borderRadius: 10, fontSize: 13, color: 'var(--color-text)' }}>
+        <select className="field w-full py-2.25 px-3 rounded-[10px] text-[13px] text-text"
+          value={data.transcript_language} onChange={e => set({ transcript_language: e.target.value })}>
           <option value="id">Indonesia</option>
           <option value="en">English</option>
         </select>
       </FieldRow>
       <FieldRow label="Rasio default" description="Rasio aspek default untuk klip baru.">
-        <select className="field" value={data.default_ratio} onChange={e => set({ default_ratio: e.target.value })}
-          style={{ width: '100%', padding: '9px 12px', borderRadius: 10, fontSize: 13, color: 'var(--color-text)' }}>
+        <select className="field w-full py-2.25 px-3 rounded-[10px] text-[13px] text-text"
+          value={data.default_ratio} onChange={e => set({ default_ratio: e.target.value })}>
           <option value="9:16">9:16 (Vertikal)</option>
           <option value="1:1">1:1 (Persegi)</option>
           <option value="4:5">4:5 (Portrait)</option>
         </select>
       </FieldRow>
       <FieldRow label="Jumlah klip maks" description="Maksimum rekomendasi klip per video.">
-        <input className="field" type="number" value={data.max_clips} onChange={e => set({ max_clips: Number(e.target.value) })}
-          style={{ width: '100%', padding: '9px 12px', borderRadius: 10, fontSize: 13 }} />
+        <input className="field w-full py-2.25 px-3 rounded-[10px] text-[13px]"
+          type="number" value={data.max_clips} onChange={e => set({ max_clips: Number(e.target.value) })} />
       </FieldRow>
       <FieldRow label="Buka saat startup" description="Jalankan aplikasi saat komputer menyala.">
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+        <label className="flex items-center gap-2.5 cursor-pointer">
           <input type="checkbox" checked={data.open_on_startup} onChange={e => set({ open_on_startup: e.target.checked })} />
-          <span style={{ fontSize: 13, color: 'var(--color-muted)' }}>Aktifkan</span>
+          <span className="text-[13px] text-muted">Aktifkan</span>
         </label>
       </FieldRow>
     </div>
@@ -209,20 +208,20 @@ function GeneralTab() {
 function AboutTab() {
   const version = useAppSelector(s => s.app.version)
   return (
-    <div style={{ padding: '20px 0' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
-        <div style={{ width: 52, height: 52, borderRadius: 16, background: 'linear-gradient(160deg,var(--color-accent-hi),var(--color-accent-lo))', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 30px -8px var(--color-accent-glow)' }}>
-          <span style={{ fontSize: 24, color: '#fff', fontWeight: 800 }}>AC</span>
+    <div className="py-5">
+      <div className="flex items-center gap-3.5 mb-7">
+        <div className="w-13 h-13 rounded-2xl bg-[linear-gradient(160deg,var(--color-accent-hi),var(--color-accent-lo))] flex items-center justify-center shadow-[0_10px_30px_-8px_var(--color-accent-glow)]">
+          <span className="text-[24px] text-white font-extrabold">AC</span>
         </div>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--color-text)' }}>Auto Clipper</div>
-          <div style={{ fontSize: 12.5, color: 'var(--color-muted)', marginTop: 2, fontFamily: 'var(--font-mono)' }}>v{version || '1.0.0'}</div>
+          <div className="text-[18px] font-extrabold text-text">Auto Clipper</div>
+          <div className="text-[12.5px] text-muted mt-0.5 font-mono">v{version || '1.0.0'}</div>
         </div>
       </div>
       {[['Platform', 'macOS (Apple Silicon)'], ['Engine', 'Wails v2 + Go + React'], ['Worker', 'Python FastAPI + ffmpeg + yt-dlp'], ['Model', 'YOLOv8 + faster-whisper']].map(([k, v]) => (
-        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--color-border-soft)', fontSize: 13 }}>
-          <span style={{ color: 'var(--color-muted)' }}>{k}</span>
-          <span style={{ color: 'var(--color-text)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>{v}</span>
+        <div key={k} className="flex justify-between py-2.5 border-b border-border-soft text-[13px]">
+          <span className="text-muted">{k}</span>
+          <span className="text-text font-mono text-[12px]">{v}</span>
         </div>
       ))}
     </div>
@@ -257,26 +256,17 @@ export default function SettingsModal() {
   }
 
   return (
-    <div style={{
-      position: 'absolute', inset: 0, zIndex: 50,
-      background: 'rgba(8,6,13,0.82)', backdropFilter: 'blur(16px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'var(--font-ui)',
-    }}
-    onClick={() => dispatch(closeOverlay())}
+    <div
+      className="absolute inset-0 z-50 bg-[rgba(8,6,13,0.82)] backdrop-blur-lg flex items-center justify-center font-ui"
+      onClick={() => dispatch(closeOverlay())}
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{
-          width: 700, height: 560, display: 'flex',
-          background: 'var(--color-panel-strong)', borderRadius: 22,
-          border: '1px solid var(--color-border)', boxShadow: '0 30px 80px rgba(0,0,0,0.7)',
-          overflow: 'hidden', animation: 'acfadein 0.18s ease-out',
-        }}
+        className="w-175 h-140 flex bg-panel-strong rounded-[22px] border border-border shadow-[0_30px_80px_rgba(0,0,0,0.7)] overflow-hidden animate-[acfadein_0.18s_ease-out]"
       >
         {/* Left nav */}
-        <div style={{ width: 200, flexShrink: 0, borderRight: '1px solid var(--color-border-soft)', padding: '20px 10px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--color-faint)', padding: '0 8px', marginBottom: 10 }}>
+        <div className="w-50 shrink-0 border-r border-border-soft px-2.5 py-5 flex flex-col gap-0.75">
+          <div className="text-[11.5px] font-bold tracking-[0.6px] uppercase text-faint px-2 mb-2.5">
             Pengaturan
           </div>
           {TABS.map(t => {
@@ -286,26 +276,22 @@ export default function SettingsModal() {
               <button
                 key={t.id}
                 onClick={() => setActiveTab(t.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 11,
-                  border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%',
-                  background: active ? 'var(--color-accent-soft)' : 'transparent',
-                  fontFamily: 'var(--font-ui)',
-                }}
-                onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
+                className={cn(
+                  'flex items-center gap-2.5 px-3 py-2.5 rounded-[11px] border-none cursor-pointer text-left w-full font-ui group',
+                  active ? 'bg-accent-soft' : 'bg-transparent hover:bg-white/4',
+                )}
               >
                 <Icon size={16} color={active ? 'var(--color-accent-hi)' : 'var(--color-muted)'} weight={active ? 'fill' : 'regular'} />
-                <span style={{ fontSize: 13.5, fontWeight: active ? 700 : 500, color: active ? 'var(--color-text)' : 'var(--color-muted)' }}>{t.label}</span>
+                <span className={cn('text-[13.5px]', active ? 'font-bold text-text' : 'font-medium text-muted')}>{t.label}</span>
               </button>
             )
           })}
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <div style={{ height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 24px', borderBottom: '1px solid var(--color-border-soft)' }}>
-            <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: 'var(--color-text)' }}>
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="h-13 shrink-0 flex items-center px-6 border-b border-border-soft">
+            <span className="flex-1 text-[14px] font-bold text-text">
               {TABS.find(t => t.id === activeTab)?.label}
             </span>
             <button onClick={() => dispatch(closeOverlay())} className="icon-btn">
@@ -313,14 +299,18 @@ export default function SettingsModal() {
             </button>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 24px 24px' }}>
+          <div className="flex-1 overflow-y-auto px-6 pt-1 pb-6">
             {loading || !data
-              ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Spinner size={20} color="var(--color-accent-hi)" /></div>
+              ? <div className="flex items-center justify-center h-full"><Spinner size={20} color="var(--color-accent-hi)" /></div>
               : <Content />}
           </div>
 
-          <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', padding: '12px 24px', borderTop: '1px solid var(--color-border-soft)' }}>
-            <button className="btn-primary" onClick={handleSave} disabled={saving || !data} style={{ padding: '10px 22px', borderRadius: 11, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="shrink-0 flex justify-end px-6 py-3 border-t border-border-soft">
+            <button
+              className="btn-primary flex items-center gap-2 px-5.5 py-2.5 rounded-[11px] text-[14px]"
+              onClick={handleSave}
+              disabled={saving || !data}
+            >
               {saving && <Spinner size={14} />} Simpan
             </button>
           </div>

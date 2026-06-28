@@ -12,12 +12,12 @@ const LEVEL_COLORS = {
 }
 
 const TOOL_COLORS: Record<string, string> = {
-  yt_dlp:         '#ff4444',
-  ffmpeg:         '#00bcd4',
-  whisper:        '#9c27b0',
-  yolo:           '#ff9800',
-  llm:            '#7b61ff',
-  compositor:     '#4caf50',
+  yt_dlp:     '#ff4444',
+  ffmpeg:     '#00bcd4',
+  whisper:    '#9c27b0',
+  yolo:       '#ff9800',
+  llm:        '#7b61ff',
+  compositor: '#4caf50',
 }
 
 function toolColor(tool: string) {
@@ -34,32 +34,24 @@ export default function LogConsole() {
   }, [lines.length])
 
   return (
-    <div style={{
-      position: 'absolute', inset: 0, zIndex: 50,
-      display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end',
-      background: 'rgba(8,6,13,0.6)', backdropFilter: 'blur(8px)',
-      fontFamily: 'var(--font-ui)',
-    }}
-    onClick={() => dispatch(closeOverlay())}
+    <div
+      className="absolute inset-0 z-50 flex items-stretch justify-end bg-[rgba(8,6,13,0.6)] backdrop-blur-sm font-ui"
+      onClick={() => dispatch(closeOverlay())}
     >
       {/* Slide-over panel */}
       <div
         onClick={e => e.stopPropagation()}
-        style={{
-          width: 500, height: '100%', display: 'flex', flexDirection: 'column',
-          background: 'var(--color-panel-strong)', borderLeft: '1px solid var(--color-border)',
-          animation: 'acslide 0.22s ease-out',
-        }}
+        className="w-125 h-full flex flex-col bg-panel-strong border-l border-border animate-[acslide_0.22s_ease-out]"
       >
         {/* Header */}
-        <div style={{ height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', borderBottom: '1px solid var(--color-border-soft)' }}>
-          <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: 'var(--color-text)' }}>
-            Worker Log {streaming && <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-accent-hi)', marginLeft: 8, animation: 'acpulse 1s infinite' }}>● live</span>}
+        <div className="h-13 shrink-0 flex items-center gap-2.5 px-4 border-b border-border-soft">
+          <span className="flex-1 text-[14px] font-bold text-text">
+            Worker Log{' '}
+            {streaming && (
+              <span className="text-[11px] font-mono text-accent-hi ml-2 animate-[acpulse_1s_infinite]">● live</span>
+            )}
           </span>
-          <button
-            onClick={() => dispatch(clearLog())}
-            className="icon-btn" title="Clear log"
-          >
+          <button onClick={() => dispatch(clearLog())} className="icon-btn" title="Clear log">
             <ArrowClockwiseIcon size={15} color="var(--color-muted)" />
           </button>
           <button onClick={() => dispatch(closeOverlay())} className="icon-btn">
@@ -68,27 +60,24 @@ export default function LogConsole() {
         </div>
 
         {/* Log lines */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <div className="flex-1 overflow-y-auto px-3.5 py-3 flex flex-col gap-px">
           {lines.length === 0 && (
-            <div style={{ color: 'var(--color-faint)', fontSize: 12.5, marginTop: 20, textAlign: 'center' }}>
+            <div className="text-faint text-[12.5px] mt-5 text-center">
               Belum ada log.
             </div>
           )}
           {lines.map((line, i) => (
-            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'baseline', lineHeight: 1.6 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9.5, color: 'var(--color-ghost)', flexShrink: 0, letterSpacing: 0.2 }}>
+            <div key={i} className="flex gap-2 items-baseline leading-[1.6]">
+              <span className="font-mono text-[9.5px] text-ghost shrink-0 tracking-[0.2px]">
                 {line.t.split('T')[1]?.slice(0, 8) ?? line.t}
               </span>
-              <span style={{
-                fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: 0.3,
-                color: toolColor(line.tool), flexShrink: 0, minWidth: 64,
-              }}>
+              <span className="font-mono text-[10px] font-bold tracking-[0.3px] shrink-0 min-w-16" style={{ color: toolColor(line.tool) }}>
                 {line.tool}
               </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: LEVEL_COLORS[line.level], flexShrink: 0, minWidth: 30 }}>
+              <span className="font-mono text-[10px] shrink-0 min-w-7.5" style={{ color: LEVEL_COLORS[line.level] }}>
                 {line.level.toUpperCase()}
               </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: LEVEL_COLORS[line.level], flex: 1, wordBreak: 'break-word' }}>
+              <span className="font-mono text-[11.5px] flex-1 wrap-break-word" style={{ color: LEVEL_COLORS[line.level] }}>
                 {line.m}
               </span>
             </div>

@@ -59,9 +59,9 @@ export default function Timeline({
   }, [dragging, inPoint, outPoint, duration])
 
   return (
-    <div style={{ padding: '0 18px 14px', fontFamily: 'var(--font-ui)', userSelect: 'none' }}>
+    <div className="px-4.5 pb-3.5 font-ui select-none">
       {/* Labels */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--color-faint)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>
+      <div className="flex justify-between text-[10px] text-faint font-mono mb-1.5">
         <span>{fmt(0)}</span>
         <span>{fmt(duration)}</span>
       </div>
@@ -69,7 +69,7 @@ export default function Timeline({
       {/* Track */}
       <div
         ref={trackRef}
-        style={{ position: 'relative', height: 48, borderRadius: 8, background: 'rgba(255,255,255,0.07)', overflow: 'visible', cursor: 'pointer' }}
+        className="relative h-12 rounded-lg bg-white/7 overflow-visible cursor-pointer"
         onPointerDown={e => {
           if ((e.target as HTMLElement).dataset.handle) return
           setDragging('seek')
@@ -78,12 +78,12 @@ export default function Timeline({
       >
         {/* Thumbnail strip */}
         {thumbnails.length > 0 && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', borderRadius: 8, overflow: 'hidden', opacity: 0.3 }}>
+          <div className="absolute inset-0 flex rounded-lg overflow-hidden opacity-30">
             {thumbnails.map((p, i) => (
               <img
                 key={i}
                 src={`/media${p}`}
-                style={{ flex: 1, objectFit: 'cover', minWidth: 0 }}
+                className="flex-1 object-cover min-w-0"
                 draggable={false}
               />
             ))}
@@ -91,52 +91,51 @@ export default function Timeline({
         )}
 
         {/* Waveform bars */}
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', gap: 1.5, alignItems: 'flex-end', padding: '6px 0', borderRadius: 8, overflow: 'hidden', opacity: 0.55 }}>
+        <div className="absolute inset-0 flex gap-[1.5px] items-end py-1.5 rounded-lg overflow-hidden opacity-55">
           {(waveform.length > 0 ? waveform : Array.from({ length: 80 }, (_, i) => 0.15 + (Math.sin(i * 1.4) * 0.5 + 0.5) * 0.7)).map((peak, i) => (
             <span
               key={i}
-              style={{ flex: 1, height: `${Math.max(6, peak * 100)}%`, background: 'var(--color-accent-lo)', borderRadius: 1 }}
+              className="flex-1 bg-accent-lo rounded-xs"
+              style={{ height: `${Math.max(6, peak * 100)}%` }}
             />
           ))}
         </div>
 
-        {/* Selected region */}
-        <div style={{
-          position: 'absolute', top: 0, bottom: 0,
-          left: `${pct(inPoint)}%`, width: `${pct(outPoint - inPoint)}%`,
-          background: 'rgba(123,97,255,0.22)', border: '1px solid var(--color-accent-lo)',
-          borderRadius: 4, pointerEvents: 'none',
-        }} />
+        {/* Selected region — left/width are runtime % from inPoint/outPoint */}
+        <div
+          className="absolute top-0 bottom-0 bg-[rgba(123,97,255,0.22)] border border-accent-lo rounded-sm pointer-events-none"
+          style={{ left: `${pct(inPoint)}%`, width: `${pct(outPoint - inPoint)}%` }}
+        />
 
         {/* IN handle */}
         <div
           data-handle="in"
-          style={{ position: 'absolute', top: -6, bottom: -6, left: `${pct(inPoint)}%`, marginLeft: -3, width: 6, background: 'var(--color-accent-hi)', borderRadius: 3, cursor: 'ew-resize', zIndex: 3 }}
+          className="absolute -top-1.5 -bottom-1.5 w-1.5 bg-accent-hi rounded-[3px] cursor-ew-resize z-3"
+          style={{ left: `${pct(inPoint)}%`, marginLeft: -3 }}
           onPointerDown={e => { e.stopPropagation(); setDragging('in') }}
         />
 
         {/* OUT handle */}
         <div
           data-handle="out"
-          style={{ position: 'absolute', top: -6, bottom: -6, left: `${pct(outPoint)}%`, marginLeft: -3, width: 6, background: 'var(--color-accent-hi)', borderRadius: 3, cursor: 'ew-resize', zIndex: 3 }}
+          className="absolute -top-1.5 -bottom-1.5 w-1.5 bg-accent-hi rounded-[3px] cursor-ew-resize z-3"
+          style={{ left: `${pct(outPoint)}%`, marginLeft: -3 }}
           onPointerDown={e => { e.stopPropagation(); setDragging('out') }}
         />
 
         {/* Playhead */}
         {currentTime >= 0 && (
-          <div style={{
-            position: 'absolute', top: -6, bottom: -6,
-            left: `${pct(currentTime)}%`, marginLeft: -1, width: 2,
-            background: '#fff', borderRadius: 2, pointerEvents: 'none', zIndex: 4,
-            boxShadow: '0 0 6px rgba(255,255,255,0.6)',
-          }} />
+          <div
+            className="absolute -top-1.5 -bottom-1.5 w-0.5 bg-white rounded-0.5 pointer-events-none z-4 shadow-[0_0_6px_rgba(255,255,255,0.6)]"
+            style={{ left: `${pct(currentTime)}%`, marginLeft: -1 }}
+          />
         )}
       </div>
 
       {/* IN / OUT labels */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-accent-hi)', marginTop: 6 }}>
+      <div className="flex justify-between text-[10.5px] font-mono text-accent-hi mt-1.5">
         <span>IN  {fmt(inPoint)}</span>
-        <span style={{ color: 'var(--color-faint)' }}>{fmt(outPoint - inPoint)} durasi</span>
+        <span className="text-faint">{fmt(outPoint - inPoint)} durasi</span>
         <span>OUT {fmt(outPoint)}</span>
       </div>
     </div>

@@ -1,11 +1,12 @@
 import { useRef, useState, KeyboardEvent, ClipboardEvent } from 'react'
-import { SparkleIcon, ShieldCheckIcon, ArrowRightIcon, WifiNoneIcon } from '@phosphor-icons/react'
+import { SparkleIcon, ShieldCheckIcon, WifiNoneIcon } from '@phosphor-icons/react'
 import { ActivateLicense } from '../../wailsjs/go/main/App'
 import { useAppDispatch } from '../store/hooks'
 import { setLicenseValid } from '../store/slices/appSlice'
 import { setScreen } from '../store/slices/uiSlice'
 import Glow from '../components/primitives/Glow'
 import Spinner from '../components/primitives/Spinner'
+import { cn } from '../lib/cn'
 
 const GROUPS = 4
 const CHARS_PER_GROUP = 4
@@ -44,9 +45,7 @@ export default function ActivationScreen() {
   }
 
   function handleKeyDown(idx: number, e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Backspace' && groups[idx] === '' && idx > 0) {
-      refs.current[idx - 1]?.focus()
-    }
+    if (e.key === 'Backspace' && groups[idx] === '' && idx > 0) refs.current[idx - 1]?.focus()
     if (e.key === 'ArrowLeft' && idx > 0) refs.current[idx - 1]?.focus()
     if (e.key === 'ArrowRight' && idx < GROUPS - 1) refs.current[idx + 1]?.focus()
   }
@@ -82,32 +81,27 @@ export default function ActivationScreen() {
   }
 
   return (
-    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+    <div className="absolute inset-0 flex flex-col items-center justify-center p-10">
       <Glow x="18%" y="18%" size={460} color="rgba(123,97,255,0.18)" />
       <Glow x="72%" y="60%" size={380} color="rgba(80,60,170,0.14)" />
 
-      <div style={{ width: 440, maxWidth: '100%', position: 'relative', zIndex: 2, fontFamily: 'var(--font-ui)', textAlign: 'center' }}>
+      <div className="w-110 max-w-full relative z-2 font-ui text-center">
         {/* Icon */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 16,
-            background: 'linear-gradient(160deg, var(--color-accent-hi), var(--color-accent-lo))',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 14px 36px -10px var(--color-accent-glow)',
-          }}>
+        <div className="flex justify-center mb-5.5">
+          <div className="w-14 h-14 rounded-2xl bg-[linear-gradient(160deg,var(--color-accent-hi),var(--color-accent-lo))] flex items-center justify-center shadow-[0_14px_36px_-10px_var(--color-accent-glow)]">
             <SparkleIcon size={28} color="#fff" weight="fill" />
           </div>
         </div>
 
-        <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, color: 'var(--color-text)', marginBottom: 8 }}>
+        <div className="text-[24px] font-extrabold tracking-[-0.5px] text-text mb-2">
           Aktivasi Lisensi
         </div>
-        <div style={{ fontSize: 14, color: 'var(--color-muted)', lineHeight: 1.55, marginBottom: 34 }}>
+        <div className="text-[14px] text-muted leading-[1.55] mb-8.5">
           Masukkan kode lisensi 16 karakter dari email konfirmasi<br />pembelianmu.
         </div>
 
-        {/* KeyIcon input groups */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 10 }}>
+        {/* Key input groups */}
+        <div className="flex items-center justify-center gap-2.5 mb-2.5">
           {Array.from({ length: GROUPS }).map((_, idx) => (
             <>
               <input
@@ -119,44 +113,38 @@ export default function ActivationScreen() {
                 onKeyDown={e => handleKeyDown(idx, e)}
                 onPaste={handlePaste}
                 placeholder="XXXX"
-                style={{
-                  width: 74, height: 52, textAlign: 'center', border: 'none', outline: 'none',
-                  fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, letterSpacing: 4,
-                  color: error ? 'var(--color-bad)' : 'var(--color-text)',
-                  background: 'rgba(255,255,255,0.05)',
-                  borderRadius: 13,
-                  boxShadow: error
-                    ? '0 0 0 1.5px rgba(255,107,102,0.6) inset'
+                className={cn(
+                  'w-18.5 h-13 text-center border-none outline-none font-mono text-[18px] font-bold tracking-[4px] bg-white/5 rounded-[13px] transition-shadow duration-[0.14s]',
+                  error
+                    ? 'text-bad shadow-[0_0_0_1.5px_rgba(255,107,102,0.6)_inset]'
                     : groups[idx].length === CHARS_PER_GROUP
-                    ? '0 0 0 1.5px var(--color-accent-line) inset'
-                    : '0 0 0 1px var(--color-border) inset',
-                  caretColor: 'var(--color-accent-hi)',
-                  transition: 'box-shadow .14s',
-                }}
+                    ? 'text-text shadow-[0_0_0_1.5px_var(--color-accent-line)_inset]'
+                    : 'text-text shadow-[0_0_0_1px_var(--color-border)_inset]',
+                )}
+                style={{ caretColor: 'var(--color-accent-hi)' }}
               />
               {idx < GROUPS - 1 && (
-                <span key={`sep-${idx}`} style={{ color: 'var(--color-border)', fontSize: 20, fontWeight: 300, userSelect: 'none' }}>—</span>
+                <span key={`sep-${idx}`} className="text-border text-[20px] font-light select-none">—</span>
               )}
             </>
           ))}
         </div>
 
-        {error && (
-          <div style={{ marginBottom: 18, fontSize: 12.5, color: 'var(--color-bad)' }}>{error}</div>
-        )}
-        {!error && <div style={{ height: 18, marginBottom: 18 }} />}
+        {error
+          ? <div className="mb-4.5 text-[12.5px] text-bad">{error}</div>
+          : <div className="h-4.5 mb-4.5" />
+        }
 
         {/* Activate button */}
         <button
           onClick={handleActivate}
           disabled={!isComplete || checking}
-          className="btn-primary"
-          style={{ width: '100%', padding: '14px 0', borderRadius: 14, fontSize: 15, fontWeight: 700 }}
+          className="btn-primary w-full py-3.5 rounded-[14px] text-[15px] font-bold"
         >
           {checking ? <><Spinner size={16} /> Memverifikasi…</> : <>Aktifkan <ShieldCheckIcon size={17} weight="fill" /></>}
         </button>
 
-        <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-faint)' }}>
+        <div className="mt-5 flex items-center justify-center gap-1.75 text-[12.5px] text-faint">
           <WifiNoneIcon size={14} />
           Diverifikasi online sekali — tidak ada subscription.
         </div>
