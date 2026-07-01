@@ -39,6 +39,8 @@ def cut_clip(req: CutRequest):
             check=True, capture_output=True, text=True
         )
     except subprocess.CalledProcessError as e:
-        raise HTTPException(status_code=500, detail=f"FFmpeg cut failed: {e.stderr[-500:]}")
+        tail = (e.stderr or "")[-1500:]
+        logger.error(f"FFmpeg cut failed: {tail}")
+        raise HTTPException(status_code=500, detail=f"FFmpeg cut failed: {tail}")
 
     return {"clip_path": clip_path}

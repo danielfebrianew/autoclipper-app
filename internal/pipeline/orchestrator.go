@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"auto-clipper/internal/clip"
 	"auto-clipper/internal/config"
@@ -59,6 +60,16 @@ func (o *Orchestrator) emit(event string, payload interface{}) {
 	runtime.EventsEmit(o.wailsCtx, event, payload)
 }
 
+func (o *Orchestrator) emitLog(tool, level, projectID, msg string) {
+	o.emit("worker:log", LogEvent{
+		T:         time.Now().Format(time.RFC3339),
+		Tool:      tool,
+		Level:     level,
+		M:         msg,
+		ProjectID: projectID,
+	})
+}
+
 // RunAnalyzeOnly re-runs the AI analysis step using transcript + heatmap already
 // stored in the DB. Skips download and transcript fetch. Appends new clips without
 // touching existing ones. excludeClips is forwarded to the worker to steer the AI
@@ -71,10 +82,12 @@ func (o *Orchestrator) RunAnalyzeOnly(ctx context.Context, projectID, apiKey str
 			Percent:   pct,
 			Message:   msg,
 		})
+		o.emitLog(toolForStep(step), "info", projectID, msg)
 		log.Info().Str("project_id", projectID).Str("step", step).Float64("pct", pct).Msg(msg)
 	}
 
 	fail := func(step string, err error) error {
+		o.emitLog(toolForStep(step), "err", projectID, fmt.Sprintf("%s gagal: %v", step, err))
 		o.emit("download:error", map[string]string{"project_id": projectID, "step": step, "error": err.Error()})
 		o.projectRepo.UpdateStatus(projectID, "error")
 		return err
@@ -248,10 +261,12 @@ func (o *Orchestrator) RunDownloadAndAnalyze(ctx context.Context, projectID, vid
 			Percent:   pct,
 			Message:   msg,
 		})
+		o.emitLog(toolForStep(step), "info", projectID, msg)
 		log.Info().Str("project_id", projectID).Str("step", step).Float64("pct", pct).Msg(msg)
 	}
 
 	fail := func(step string, err error) error {
+		o.emitLog(toolForStep(step), "err", projectID, fmt.Sprintf("%s gagal: %v", step, err))
 		o.emit("download:error", map[string]string{"project_id": projectID, "step": step, "error": err.Error()})
 		o.projectRepo.UpdateStatus(projectID, "error")
 		o.videoRepo.UpdateStatus(videoID, "error")
@@ -287,6 +302,8 @@ func (o *Orchestrator) RunDownloadAndAnalyze(ctx context.Context, projectID, vid
 		// Map yt-dlp 0-100 into the 20-44 slice of overall pipeline progress
 		overall := 20 + pct*0.24
 		emit("download", overall, msg)
+	}, func(line string) {
+		o.emitLog("youtube", InferLevel(line), projectID, line)
 	})
 	if err != nil {
 		return fail("download", err)

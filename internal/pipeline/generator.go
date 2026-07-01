@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"auto-clipper/internal/clip"
 	"auto-clipper/internal/config"
@@ -47,6 +48,16 @@ func NewGenerator(
 
 func (g *Generator) emit(event string, payload interface{}) {
 	runtime.EventsEmit(g.wailsCtx, event, payload)
+}
+
+func (g *Generator) emitLog(tool, level, clipID, msg string) {
+	g.emit("worker:log", LogEvent{
+		T:      time.Now().Format(time.RFC3339),
+		Tool:   tool,
+		Level:  level,
+		M:      msg,
+		ClipID: clipID,
+	})
 }
 
 // Cancel stops an in-progress generation for the given projectID.
@@ -93,6 +104,7 @@ func (g *Generator) GenerateAll(ctx context.Context, projectID, videoPath string
 		if err := g.generateClip(ctx, videoPath, c); err != nil {
 			log.Error().Err(err).Str("clip_id", c.ID).Msg("Clip generation failed")
 			g.clipRepo.UpdateStatus(c.ID, "error")
+			g.emitLog("ffmpeg", "err", c.ID, err.Error())
 			g.emit("clip:error", map[string]string{
 				"clip_id": c.ID,
 				"step":    "generate",
@@ -144,6 +156,7 @@ func (g *Generator) runClipPipeline(ctx context.Context, videoPath string, c cli
 			Percent: pct,
 			Message: msg + suffix,
 		})
+		g.emitLog(toolForClipStep(step), "info", c.ID, msg+suffix)
 		log.Info().Str("clip_id", c.ID).Str("step", step).Bool("preview", preview).Msg(msg)
 	}
 

@@ -18,7 +18,7 @@ interface Props {
   smooth: boolean
   onTimeUpdate: (t: number) => void
   onPlayStateChange: (playing: boolean) => void
-  onLoadedMetadata?: (w: number, h: number) => void
+  onLoadedMetadata?: (w: number, h: number, duration: number) => void
 }
 
 export default forwardRef<SourceStageHandle, Props>(function SourceStage(
@@ -85,7 +85,7 @@ export default forwardRef<SourceStageHandle, Props>(function SourceStage(
           preload="metadata"
           onLoadedMetadata={e => {
             const v = e.currentTarget
-            onLoadedMetadata?.(v.videoWidth, v.videoHeight)
+            onLoadedMetadata?.(v.videoWidth, v.videoHeight, v.duration)
           }}
         />
       ) : (

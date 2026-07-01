@@ -1,93 +1,180 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  YoutubeLogoIcon, ScissorsIcon, SparkleIcon, ExportIcon, LightningIcon,
-  ArrowRightIcon, CheckIcon, WarningCircleIcon,
+  ClockIcon, LightningIcon, ArrowRightIcon, DotsThreeIcon, ExportIcon,
 } from '@phosphor-icons/react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { fetchProjects, startDownload } from '../../store/slices/projectSlice'
 import { fetchClips } from '../../store/slices/clipSlice'
-import { fetchLibrary, openDetail } from '../../store/slices/librarySlice'
+import { fetchLibrary, openDetail, type LibraryVideo } from '../../store/slices/librarySlice'
 import { setActiveProject, openOverlay, setScreen } from '../../store/slices/uiSlice'
+import type { Project } from '../../store/slices/projectSlice'
+import type { Clip } from '../../store/slices/clipSlice'
 import Spinner from '../../components/primitives/Spinner'
 import { toastError, toastInfo, errText } from '../../lib/toast'
 import { useSmoothValue } from '../../lib/useSmoothValue'
 
-/** Thin progress bar inside an active thread step, smoothly animated. */
-function StepProgressBar({ percent }: { percent: number }) {
+/** Timeline of activity events, chat/feed style. */
+type EntryKind = 'you' | 'clipper'
+type EntryState = 'done' | 'active' | 'pending'
+
+interface FeedEntry {
+  id: string
+  kind: EntryKind
+  state: EntryState
+  /** For 'you': shown as a bordered bubble. For 'clipper': rich body. */
+  bubble?: string
+  /** Rich body node for clipper entries. */
+  body?: React.ReactNode
+}
+
+/** Format seconds as h:mm:ss / m:ss for the "Video diunduh" chip. */
+function fmtClock(sec: number): string {
+  if (!sec) return '—'
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = Math.floor(sec % 60)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
+}
+
+/** Thin progress bar for the active generating entry, smoothly animated. */
+function FeedProgressBar({ percent }: { percent: number }) {
   const v = useSmoothValue(percent)
   return (
-    <>
+    <div style={{
+      marginTop: 8, height: 4, borderRadius: 3,
+      background: 'var(--color-border)', overflow: 'hidden',
+    }}>
       <div style={{
-        marginTop: 6, height: 3, borderRadius: 2,
-        background: 'var(--color-border)', overflow: 'hidden',
-      }}>
-        <div style={{
-          height: '100%', borderRadius: 2,
-          background: 'linear-gradient(90deg, var(--color-accent-lo), var(--color-accent-hi))',
-          width: `${v}%`,
-        }} />
-      </div>
-      <div style={{
-        fontSize: 10, color: 'var(--color-accent-hi)',
-        fontFamily: 'var(--font-mono)', marginTop: 3,
-      }}>
-        {v.toFixed(0)}%
-      </div>
-    </>
+        height: '100%', borderRadius: 3,
+        background: 'linear-gradient(90deg, var(--color-accent-lo), var(--color-accent-hi))',
+        width: `${v}%`,
+        boxShadow: '0 0 10px var(--color-accent-line)',
+        transition: 'none',
+      }} />
+    </div>
   )
 }
 
-interface ThreadStep {
-  icon: React.ElementType
-  label: string
-  status: 'done' | 'active' | 'pending' | 'error'
-  detail?: string
-  progress?: number // 0-100
+/** Build the activity feed from real project / video / clip state. */
+function buildFeed(
+  project: Project,
+  video: LibraryVideo | undefined,
+  clips: Clip[],
+  dp: { step: string; percent: number; message: string } | undefined,
+  gen: { active: number; total: number; percent: number },
+  onOpenLog: () => void,
+): FeedEntry[] {
+  const s = project.status
+  const isErr = s.startsWith('error')
+  const feed: FeedEntry[] = []
+
+  // 1. KAMU — the pasted link
+  const url = video?.youtube_url
+  if (url) {
+    feed.push({ id: 'you-url', kind: 'you', state: 'done', bubble: url })
+  }
+
+  // 2. AUTO CLIPPER — download
+  const downloading = s === 'metadata' || s === 'downloading'
+  const downloaded = ['downloaded', 'transcript', 'analyzing', 'analyzed', 'ready'].includes(s)
+  if (downloading) {
+    feed.push({
+      id: 'dl', kind: 'clipper', state: 'active',
+      body: (
+        <>
+          <div style={bodyText}>
+            {s === 'metadata' ? 'Mengambil metadata…' : 'Mengunduh video…'}
+          </div>
+          {s === 'downloading' && dp && <FeedProgressBar percent={dp.percent} />}
+        </>
+      ),
+    })
+  } else if (downloaded && video) {
+    feed.push({
+      id: 'dl', kind: 'clipper', state: 'done',
+      body: (
+        <>
+          <div style={bodyText}>
+            Video diunduh — <strong style={{ color: 'var(--color-text)', fontWeight: 700 }}>{video.title}</strong>
+          </div>
+          <div style={chip}>
+            <ClockIcon size={12} weight="bold" />
+            {fmtClock(video.duration)}
+          </div>
+        </>
+      ),
+    })
+  }
+
+  // 3. AUTO CLIPPER — transcription / analysis
+  const transcribing = s === 'transcript'
+  const analyzing = s === 'analyzing'
+  if (transcribing || analyzing) {
+    feed.push({
+      id: 'analyze', kind: 'clipper', state: 'active',
+      body: <div style={bodyText}>{transcribing ? 'Mengambil transkrip…' : 'Menganalisis transkrip dengan AI…'}</div>,
+    })
+  } else if (['analyzed', 'ready'].includes(s) && clips.length > 0) {
+    feed.push({
+      id: 'analyze', kind: 'clipper', state: 'done',
+      body: (
+        <div style={bodyText}>
+          <strong style={{ color: 'var(--color-text)', fontWeight: 700 }}>{clips.length} momen</strong> terdeteksi dari transkrip
+        </div>
+      ),
+    })
+  }
+
+  // 4. AUTO CLIPPER — generating clips
+  if (gen.active > 0) {
+    const idx = Math.min(gen.total, gen.total - gen.active + 1)
+    feed.push({
+      id: 'gen', kind: 'clipper', state: 'active',
+      body: (
+        <>
+          <div style={bodyText}>
+            Generating klip <strong style={{ color: 'var(--color-text)', fontWeight: 700 }}>{idx} dari {gen.total}</strong>…
+          </div>
+          <FeedProgressBar percent={gen.percent} />
+          <button onClick={onOpenLog} className="btn-ghost" style={logBtn}>
+            <DotsThreeIcon size={16} weight="bold" /> Lihat log proses
+          </button>
+        </>
+      ),
+    })
+  }
+
+  if (isErr) {
+    feed.push({
+      id: 'err', kind: 'clipper', state: 'pending',
+      body: <div style={{ ...bodyText, color: 'var(--color-bad)' }}>Terjadi kesalahan saat memproses.</div>,
+    })
+  }
+
+  return feed
 }
 
-function getSteps(
-  project: any,
-  dp?: { step: string; percent: number; message: string },
-): ThreadStep[] {
-  const s = project.status as string
-  const isDone  = (steps: string[]) => steps.includes(s)
-  const isErr   = s.startsWith('error')
-
-  return [
-    {
-      icon: YoutubeLogoIcon,
-      label: 'Download video',
-      status: isDone(['downloaded', 'analyzing', 'analyzed', 'ready', 'transcript']) ? 'done'
-        : s === 'downloading' || s === 'metadata' ? 'active'
-        : isErr ? 'error' : 'pending',
-      detail: s === 'downloading'
-        ? (dp?.message ?? 'Mengunduh…')
-        : s === 'metadata' ? 'Mengambil metadata…' : undefined,
-      progress: s === 'downloading' ? dp?.percent : undefined,
-    },
-    {
-      icon: ScissorsIcon,
-      label: 'Transkripsi',
-      status: isDone(['analyzed', 'ready']) ? 'done'
-        : s === 'transcript' || s === 'analyzing' ? 'active'
-        : isErr ? 'error' : 'pending',
-      detail: s === 'transcript' ? 'Mengambil transkrip…' : undefined,
-    },
-    {
-      icon: SparkleIcon,
-      label: 'Analisis Gemini',
-      status: isDone(['ready']) ? 'done'
-        : s === 'analyzing' ? 'active'
-        : isErr ? 'error' : 'pending',
-      detail: s === 'analyzing' ? 'Menganalisis dengan AI…' : undefined,
-    },
-  ]
+const bodyText: React.CSSProperties = {
+  fontSize: 14, lineHeight: 1.45, color: 'var(--color-muted)',
+}
+const chip: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8,
+  padding: '4px 10px', borderRadius: 8, fontSize: 12,
+  fontFamily: 'var(--font-mono)', color: 'var(--color-muted)',
+  background: 'rgba(255,255,255,0.05)', border: '1px solid var(--color-border)',
+}
+const logBtn: React.CSSProperties = {
+  marginTop: 12, padding: '9px 14px', borderRadius: 10, fontSize: 13,
+  gap: 6, fontFamily: 'var(--font-mono)',
 }
 
 export default function ActivityColumn() {
   const dispatch = useAppDispatch()
   const { list: projects } = useAppSelector(s => s.project)
   const { list: clips }    = useAppSelector(s => s.clip)
+  const generateProgress   = useAppSelector(s => s.clip.generateProgress)
+  const library            = useAppSelector(s => s.library.list)
   const downloadProgress   = useAppSelector(s => s.project.downloadProgress)
   const activeProjectId    = useAppSelector(s => s.ui.activeProjectId)
   const activeProject      = projects.find(p => p.id === activeProjectId) ?? null
@@ -97,7 +184,7 @@ export default function ActivityColumn() {
   const [adding, setAdding]       = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { dispatch(fetchProjects()) }, [])
+  useEffect(() => { dispatch(fetchProjects()); dispatch(fetchLibrary()) }, [])
   useEffect(() => {
     if (activeProjectId) dispatch(fetchClips(activeProjectId))
   }, [activeProjectId])
@@ -135,13 +222,29 @@ export default function ActivityColumn() {
     }
   }
 
-  const dp    = activeProjectId ? downloadProgress[activeProjectId] : undefined
-  const steps = activeProject ? getSteps(activeProject, dp) : []
+  const dp = activeProjectId ? downloadProgress[activeProjectId] : undefined
+  const sourceVideo = library.find(v => v.video_id === activeProject?.source_video_id)
   const readyClips = clips.filter(c => c.project_id === activeProjectId)
+
+  // Derive generating stats from per-clip progress entries.
+  const genEntries = readyClips
+    .map(c => generateProgress[c.id])
+    .filter(Boolean) as { step: string; percent: number; message: string }[]
+  const gen = {
+    active: genEntries.length,
+    total: readyClips.length,
+    percent: genEntries.length
+      ? genEntries.reduce((sum, g) => sum + g.percent, 0) / genEntries.length
+      : 0,
+  }
+
+  const feed = activeProject
+    ? buildFeed(activeProject, sourceVideo, readyClips, dp, gen, () => dispatch(openOverlay('log')))
+    : []
 
   return (
     <div style={{
-      width: 264, flexShrink: 0,
+      width: 300, flexShrink: 0,
       borderRight: '1px solid var(--color-border-soft)',
       display: 'flex', flexDirection: 'column',
       fontFamily: 'var(--font-ui)', minHeight: 0,
@@ -159,79 +262,65 @@ export default function ActivityColumn() {
         <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {activeProject?.name || 'Aktivitas'}
         </span>
+        {sourceVideo?.video_id && (
+          <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-faint)', flexShrink: 0 }}>
+            {sourceVideo.video_id}
+          </span>
+        )}
       </div>
 
-      {/* ── Thread (scrollable) ── */}
+      {/* ── Activity feed (scrollable) ── */}
       {activeProject && (
-        <div style={{ padding: '14px 16px', flex: 1, overflowY: 'auto', minHeight: 0 }}>
-          <div style={{
-            fontSize: 10.5, fontWeight: 700, letterSpacing: 0.7,
-            textTransform: 'uppercase', color: 'var(--color-faint)', marginBottom: 14,
-          }}>
-            Thread
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {steps.map((step, i) => {
-              const isDone   = step.status === 'done'
-              const isActive = step.status === 'active'
-              const isError  = step.status === 'error'
-              const Icon     = step.icon
-              const showBar  = isActive && step.progress != null
+        <div style={{ padding: '18px 16px', flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {feed.map((entry, i) => {
+              const last = i === feed.length - 1
+              const dotColor =
+                entry.state === 'active' ? 'var(--color-accent-hi)'
+                : entry.kind === 'clipper' && entry.state === 'done' ? 'var(--color-good)'
+                : 'var(--color-accent-hi)'
+              const glow = entry.kind === 'clipper' && entry.state === 'done'
+                ? '0 0 8px rgba(84,214,160,0.7)'
+                : entry.state === 'active' ? '0 0 8px var(--color-accent-line)' : 'none'
 
               return (
-                <div key={i} style={{ display: 'flex', gap: 10, position: 'relative' }}>
-                  {/* vertical connector */}
-                  {i < steps.length - 1 && (
+                <div key={entry.id} style={{ display: 'flex', gap: 14, position: 'relative' }}>
+                  {/* rail */}
+                  <div style={{ position: 'relative', width: 10, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
                     <div style={{
-                      position: 'absolute', left: 15, top: 33, bottom: -6,
-                      width: 1.5, borderRadius: 1,
-                      background: isDone ? 'var(--color-accent-lo)' : 'var(--color-border)',
+                      width: 10, height: 10, borderRadius: '50%', marginTop: 3, zIndex: 1,
+                      background: dotColor, boxShadow: glow,
                     }} />
-                  )}
-
-                  {/* icon badge */}
-                  <div style={{
-                    width: 32, height: 32, borderRadius: 10, flexShrink: 0, zIndex: 1,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    marginBottom: i < steps.length - 1 ? 24 : 0,
-                    background: isDone  ? 'rgba(84,214,160,0.14)'
-                              : isError ? 'rgba(255,107,102,0.14)'
-                              : isActive ? 'var(--color-accent-soft)'
-                              : 'rgba(255,255,255,0.04)',
-                    border: `1px solid ${
-                      isDone  ? 'rgba(84,214,160,0.30)'
-                    : isError ? 'rgba(255,107,102,0.35)'
-                    : isActive ? 'var(--color-accent-line)'
-                    : 'var(--color-border)'}`,
-                  }}>
-                    {isDone  ? <CheckIcon size={14} color="var(--color-good)" weight="bold" />
-                   : isError ? <WarningCircleIcon size={14} color="var(--color-bad)" weight="fill" />
-                   : isActive ? <Spinner size={14} color="var(--color-accent-hi)" />
-                   : <Icon size={14} color="var(--color-faint)" />}
+                    {!last && (
+                      <div style={{
+                        position: 'absolute', top: 16, bottom: -4, left: '50%',
+                        width: 1.5, marginLeft: -0.75, borderRadius: 1,
+                        background: 'var(--color-border)',
+                      }} />
+                    )}
                   </div>
 
-                  {/* label + detail + progress bar */}
-                  <div style={{ flex: 1, paddingTop: 5 }}>
+                  {/* content */}
+                  <div style={{ flex: 1, minWidth: 0, paddingBottom: last ? 0 : 22 }}>
                     <div style={{
-                      fontSize: 13, fontWeight: 600,
-                      color: isDone || isActive ? 'var(--color-text)' : 'var(--color-faint)',
+                      fontSize: 11, fontWeight: 700, letterSpacing: 0.7,
+                      textTransform: 'uppercase', marginBottom: 6,
+                      color: entry.kind === 'you' ? 'var(--color-accent-hi)' : 'var(--color-faint)',
                     }}>
-                      {step.label}
+                      {entry.kind === 'you' ? 'Kamu' : 'Auto Clipper'}
                     </div>
 
-                    {step.detail && (
+                    {entry.bubble ? (
                       <div style={{
-                        fontSize: 11, color: 'var(--color-faint)',
-                        fontFamily: 'var(--font-mono)', marginTop: 2,
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        padding: '11px 14px', borderRadius: 12,
+                        background: 'var(--color-accent-soft)',
+                        border: '1px solid var(--color-accent-line)',
+                        fontSize: 13.5, fontFamily: 'var(--font-mono)',
+                        color: 'var(--color-text)', wordBreak: 'break-all',
                       }}>
-                        {step.detail}
+                        {entry.bubble}
                       </div>
-                    )}
-
-                    {/* smooth progress bar + percentage */}
-                    {showBar && <StepProgressBar percent={step.progress!} />}
+                    ) : entry.body}
                   </div>
                 </div>
               )
@@ -239,13 +328,13 @@ export default function ActivityColumn() {
           </div>
 
           {/* action after ready */}
-          {activeProject.status === 'ready' && readyClips.length > 0 && (
+          {activeProject.status === 'ready' && readyClips.length > 0 && gen.active === 0 && (
             <button
               onClick={() => dispatch(openOverlay('export'))}
               className="btn-primary"
-              style={{ width: '100%', padding: '12px 0', borderRadius: 12, fontSize: 13, marginTop: 20 }}
+              style={{ width: '100%', padding: '14px 0', borderRadius: 14, fontSize: 14, fontWeight: 700, marginTop: 22 }}
             >
-              <ExportIcon size={15} weight="bold" /> Ekspor semua ({readyClips.length})
+              <ExportIcon size={16} weight="bold" /> Ekspor semua ({readyClips.length})
             </button>
           )}
         </div>

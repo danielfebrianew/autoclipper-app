@@ -8,6 +8,11 @@ interface Props {
   currentTime: number
   waveform: number[]       // 0..1 normalised peaks
   thumbnails: string[]     // absolute disk paths
+  /** Window-relative seconds where the clip's audio/thumbnails begin/end.
+   *  Waveform & thumbnails only cover the original clip range, not the wider
+   *  editable window, so they are positioned to that sub-range. Default = full track. */
+  waveformStart?: number
+  waveformEnd?: number
   onInChange: (v: number) => void
   onOutChange: (v: number) => void
   onSeek: (v: number) => void
@@ -22,6 +27,7 @@ function fmt(s: number) {
 export default function Timeline({
   duration, inPoint, outPoint, currentTime,
   waveform, thumbnails,
+  waveformStart = 0, waveformEnd = duration,
   onInChange, onOutChange, onSeek,
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null)
@@ -76,9 +82,12 @@ export default function Timeline({
           onSeek(xToSec(e.clientX))
         }}
       >
-        {/* Thumbnail strip */}
+        {/* Thumbnail strip — positioned to the clip's sub-range of the window */}
         {thumbnails.length > 0 && (
-          <div className="absolute inset-0 flex rounded-lg overflow-hidden opacity-30">
+          <div
+            className="absolute top-0 bottom-0 flex overflow-hidden opacity-30"
+            style={{ left: `${pct(waveformStart)}%`, width: `${pct(waveformEnd - waveformStart)}%` }}
+          >
             {thumbnails.map((p, i) => (
               <img
                 key={i}
@@ -90,8 +99,11 @@ export default function Timeline({
           </div>
         )}
 
-        {/* Waveform bars */}
-        <div className="absolute inset-0 flex gap-[1.5px] items-end py-1.5 rounded-lg overflow-hidden opacity-55">
+        {/* Waveform bars — positioned to the clip's sub-range of the window */}
+        <div
+          className="absolute top-0 bottom-0 flex gap-[1.5px] items-end py-1.5 overflow-hidden opacity-55"
+          style={{ left: `${pct(waveformStart)}%`, width: `${pct(waveformEnd - waveformStart)}%` }}
+        >
           {(waveform.length > 0 ? waveform : Array.from({ length: 80 }, (_, i) => 0.15 + (Math.sin(i * 1.4) * 0.5 + 0.5) * 0.7)).map((peak, i) => (
             <span
               key={i}

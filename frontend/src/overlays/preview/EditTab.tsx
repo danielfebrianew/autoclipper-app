@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Clip } from '../../store/slices/clipSlice'
 import { SetClipAspectRatio } from '../../../wailsjs/go/main/App'
 import { cn } from '../../lib/cn'
@@ -10,21 +11,39 @@ function fmt(s: number) {
   return `${m}:${String(sec).padStart(2, '0')}`
 }
 
+// Parse "mm:ss", "hh:mm:ss", or plain seconds (int/float). Returns null on unparseable input.
+function parseTime(raw: string): number | null {
+  const s = raw.trim()
+  if (!s) return null
+  if (s.includes(':')) {
+    const parts = s.split(':').map(p => p.trim())
+    if (parts.some(p => p === '' || isNaN(Number(p)))) return null
+    return parts.map(Number).reduce((total, n) => total * 60 + n, 0)
+  }
+  const n = Number(s)
+  return isNaN(n) ? null : n
+}
+
 interface Props {
   clip: Clip
   inPoint: number
   outPoint: number
+  windowStart: number
+  windowEnd: number
   ratio: string
   showCrop: boolean
   showCaption: boolean
+  onInChange: (v: number) => void
+  onOutChange: (v: number) => void
   onRatioChange: (r: string) => void
   onShowCropChange: (v: boolean) => void
   onShowCaptionChange: (v: boolean) => void
 }
 
 export default function EditTab({
-  clip, inPoint, outPoint, ratio,
+  clip, inPoint, outPoint, windowStart, windowEnd, ratio,
   showCrop, showCaption,
+  onInChange, onOutChange,
   onRatioChange, onShowCropChange, onShowCaptionChange,
 }: Props) {
   const dur = outPoint - inPoint
@@ -37,13 +56,16 @@ export default function EditTab({
   return (
     <div className="flex flex-col gap-4.5">
 
-      {/* Trim info */}
+      {/* Trim info — IN/OUT editable, Dur read-only */}
       <section>
         <Label>Durasi terpilih</Label>
         <div className="flex gap-2">
-          <InfoBox label="IN" value={fmt(inPoint)} />
-          <InfoBox label="OUT" value={fmt(outPoint)} />
+          <TimeInput label="IN" seconds={inPoint} onCommit={onInChange} />
+          <TimeInput label="OUT" seconds={outPoint} onCommit={onOutChange} />
           <InfoBox label="Dur" value={fmt(dur)} accent />
+        </div>
+        <div className="text-[10px] text-faint font-mono mt-1.5 text-center">
+          {fmt(windowStart)}–{fmt(windowEnd)} tersedia
         </div>
       </section>
 
@@ -107,6 +129,42 @@ function Label({ children }: { children: React.ReactNode }) {
   return (
     <div className="text-[10.5px] font-bold tracking-[0.5px] uppercase text-faint mb-2">
       {children}
+    </div>
+  )
+}
+
+function TimeInput({
+  label, seconds, onCommit,
+}: { label: string; seconds: number; onCommit: (v: number) => void }) {
+  const [text, setText] = useState('')
+  const [editing, setEditing] = useState(false)
+
+  // Reflect the external value when not actively editing.
+  useEffect(() => { if (!editing) setText(fmt(seconds)) }, [seconds, editing])
+
+  function commit() {
+    setEditing(false)
+    const parsed = parseTime(text)
+    if (parsed == null) { setText(fmt(seconds)); return }  // revert on bad input
+    onCommit(parsed)  // parent clamps
+  }
+
+  return (
+    <div className="flex-1 bg-white/4 rounded-lg px-2 pt-2 pb-1.5 text-center">
+      <input
+        value={text}
+        onFocus={() => setEditing(true)}
+        onChange={e => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.currentTarget.blur() }
+          else if (e.key === 'Escape') { setText(fmt(seconds)); setEditing(false); e.currentTarget.blur() }
+        }}
+        className="w-full bg-transparent text-center text-[13px] font-bold font-mono text-text outline-none border border-transparent focus:border-accent-line rounded"
+        inputMode="text"
+        aria-label={label}
+      />
+      <div className="text-[10px] text-faint mt-0.5">{label}</div>
     </div>
   )
 }

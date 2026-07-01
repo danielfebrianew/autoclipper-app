@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	"auto-clipper/internal/asset"
 	"auto-clipper/internal/clip"
@@ -1462,6 +1463,15 @@ func (a *App) RedownloadSource(videoID string) error {
 
 	go func() {
 		ctx := context.Background()
+		emitLog := func(tool, level, msg string) {
+			wailsruntime.EventsEmit(a.ctx, "worker:log", pipeline.LogEvent{
+				T:         time.Now().Format(time.RFC3339),
+				Tool:      tool,
+				Level:     level,
+				M:         msg,
+				ProjectID: videoID,
+			})
+		}
 		emit := func(step string, pct float64, msg string) {
 			wailsruntime.EventsEmit(a.ctx, "download:progress", pipeline.ProgressEvent{
 				ProjectID: videoID,
@@ -1469,6 +1479,7 @@ func (a *App) RedownloadSource(videoID string) error {
 				Percent:   pct,
 				Message:   msg,
 			})
+			emitLog("youtube", "info", msg)
 		}
 
 		emit("download", 5, "Mengunduh ulang video…")
@@ -1481,8 +1492,11 @@ func (a *App) RedownloadSource(videoID string) error {
 		}, func(pct float64, msg string) {
 			overall := 5 + pct*0.9
 			emit("download", overall, msg)
+		}, func(line string) {
+			emitLog("youtube", pipeline.InferLevel(line), line)
 		})
 		if err != nil {
+			emitLog("youtube", "err", err.Error())
 			wailsruntime.EventsEmit(a.ctx, "download:error", map[string]string{
 				"video_id": videoID, "step": "download", "error": err.Error(),
 			})

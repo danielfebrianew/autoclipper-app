@@ -279,9 +279,15 @@ func (c *WorkerClient) FetchMetadata(ctx context.Context, req MetadataRequest) (
 	return &result, c.post(ctx, "/metadata", req, &result)
 }
 
-// Download streams yt-dlp progress lines and calls onProgress(pct, msg) for each update.
-// Returns the final video path when done.
-func (c *WorkerClient) Download(ctx context.Context, req DownloadRequest, onProgress func(pct float64, msg string)) (*DownloadResponse, error) {
+// Download streams yt-dlp progress + raw log lines.
+// onProgress(pct, msg) fires on PROGRESS: lines; onLog(rawLine) fires on LOG: lines
+// (and the ERROR: line). onLog may be nil. Returns the final video path when done.
+func (c *WorkerClient) Download(
+	ctx context.Context,
+	req DownloadRequest,
+	onProgress func(pct float64, msg string),
+	onLog func(line string),
+) (*DownloadResponse, error) {
 	payload, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -305,7 +311,19 @@ func (c *WorkerClient) Download(ctx context.Context, req DownloadRequest, onProg
 		return nil, fmt.Errorf("worker error %d: %s", resp.StatusCode, data)
 	}
 
-	scanner := bufio.NewScanner(resp.Body)
+	videoPath, err := parseDownloadStream(resp.Body, onProgress, onLog)
+	if err != nil {
+		return nil, err
+	}
+	return &DownloadResponse{VideoPath: videoPath}, nil
+}
+
+// parseDownloadStream scans the worker's line-oriented download stream, invoking
+// onProgress for PROGRESS: lines and onLog for LOG:/ERROR: lines. Extracted for testing.
+func parseDownloadStream(r io.Reader, onProgress func(pct float64, msg string), onLog func(line string)) (string, error) {
+	scanner := bufio.NewScanner(r)
+	// yt-dlp lines can be long; bump the buffer so long URLs/warnings don't error.
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	var videoPath string
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -320,18 +338,24 @@ func (c *WorkerClient) Download(ctx context.Context, req DownloadRequest, onProg
 		case strings.HasPrefix(line, "DONE:"):
 			videoPath = strings.TrimPrefix(line, "DONE:")
 		case strings.HasPrefix(line, "ERROR:"):
-			return nil, fmt.Errorf("yt-dlp: %s", strings.TrimPrefix(line, "ERROR:"))
+			msg := strings.TrimPrefix(line, "ERROR:")
+			if onLog != nil {
+				onLog("ERROR " + msg) // ensure the failure is visible in the log too
+			}
+			return "", fmt.Errorf("yt-dlp: %s", msg)
 		case strings.HasPrefix(line, "LOG:"):
-			// forwarded yt-dlp log lines — ignore at this level
+			if onLog != nil {
+				onLog(strings.TrimPrefix(line, "LOG:"))
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		return "", err
 	}
 	if videoPath == "" {
-		return nil, fmt.Errorf("download completed but no video path returned")
+		return "", fmt.Errorf("download completed but no video path returned")
 	}
-	return &DownloadResponse{VideoPath: videoPath}, nil
+	return videoPath, nil
 }
 
 func (c *WorkerClient) FetchTranscript(ctx context.Context, req TranscriptRequest) (*TranscriptResponse, error) {

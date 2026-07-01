@@ -1,4 +1,4 @@
-import { useRef, useState, KeyboardEvent, ClipboardEvent } from 'react'
+import { Fragment, useRef, useState, KeyboardEvent, ClipboardEvent } from 'react'
 import { SparkleIcon, ShieldCheckIcon, WifiNoneIcon } from '@phosphor-icons/react'
 import { ActivateLicense } from '../../wailsjs/go/main/App'
 import { useAppDispatch } from '../store/hooks'
@@ -103,9 +103,8 @@ export default function ActivationScreen() {
         {/* Key input groups */}
         <div className="flex items-center justify-center gap-2.5 mb-2.5">
           {Array.from({ length: GROUPS }).map((_, idx) => (
-            <>
+            <Fragment key={idx}>
               <input
-                key={idx}
                 ref={el => { refs.current[idx] = el }}
                 maxLength={CHARS_PER_GROUP}
                 value={groups[idx]}
@@ -124,9 +123,9 @@ export default function ActivationScreen() {
                 style={{ caretColor: 'var(--color-accent-hi)' }}
               />
               {idx < GROUPS - 1 && (
-                <span key={`sep-${idx}`} className="text-border text-[20px] font-light select-none">—</span>
+                <span className="text-border text-[20px] font-light select-none">—</span>
               )}
-            </>
+            </Fragment>
           ))}
         </div>
 

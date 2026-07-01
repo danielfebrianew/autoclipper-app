@@ -11,13 +11,14 @@ const LEVEL_COLORS = {
   err:  'var(--color-bad)',
 }
 
+// Canonical tool names match the worker/Go emitLog tags. High contrast on dark bg.
 const TOOL_COLORS: Record<string, string> = {
-  yt_dlp:     '#ff4444',
-  ffmpeg:     '#00bcd4',
-  whisper:    '#9c27b0',
-  yolo:       '#ff9800',
-  llm:        '#7b61ff',
-  compositor: '#4caf50',
+  youtube: '#ff4d4f', // yt-dlp — red
+  ffmpeg:  '#22d3ee', // cyan
+  whisper: '#c084fc', // purple
+  gemini:  '#818cf8', // indigo (LLM)
+  yolov8:  '#fb923c', // orange (face tracking)
+  worker:  '#94a3b8', // slate — generic worker lines
 }
 
 function toolColor(tool: string) {
@@ -26,8 +27,17 @@ function toolColor(tool: string) {
 
 export default function LogConsole() {
   const dispatch = useAppDispatch()
-  const { lines, streaming } = useAppSelector(s => s.log)
+  const { lines, streaming, clipId } = useAppSelector(s => s.log)
+  const activeProjectId = useAppSelector(s => s.ui.activeProjectId)
+  const projects = useAppSelector(s => s.project.list)
+  const clips = useAppSelector(s => s.clip.list)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  const status = streaming ? 'Berjalan' : (lines.length ? 'Selesai' : 'Menunggu')
+  const activeClip = clipId ? clips.find(c => c.id === clipId) : undefined
+  const activeProject = activeProjectId ? projects.find(p => p.id === activeProjectId) : undefined
+  const name = activeClip?.hook || activeClip?.summary || activeProject?.name || ''
+  const subtitle = name ? `${status} · ${name}` : status
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -44,19 +54,22 @@ export default function LogConsole() {
         className="w-125 h-full flex flex-col bg-panel-strong border-l border-border animate-[acslide_0.22s_ease-out]"
       >
         {/* Header */}
-        <div className="h-13 shrink-0 flex items-center gap-2.5 px-4 border-b border-border-soft">
-          <span className="flex-1 text-[14px] font-bold text-text">
-            Worker Log{' '}
-            {streaming && (
-              <span className="text-[11px] font-mono text-accent-hi ml-2 animate-[acpulse_1s_infinite]">● live</span>
-            )}
-          </span>
-          <button onClick={() => dispatch(clearLog())} className="icon-btn" title="Clear log">
-            <ArrowClockwiseIcon size={15} color="var(--color-muted)" />
-          </button>
-          <button onClick={() => dispatch(closeOverlay())} className="icon-btn">
-            <XIcon size={18} color="var(--color-muted)" />
-          </button>
+        <div className="h-13 shrink-0 flex flex-col justify-center gap-0.5 px-4 border-b border-border-soft">
+          <div className="flex items-center gap-2.5">
+            <span className="flex-1 text-[14px] font-bold text-text">
+              Log proses{' '}
+              {streaming && (
+                <span className="text-[11px] font-mono text-accent-hi ml-2 animate-[acpulse_1s_infinite]">● live</span>
+              )}
+            </span>
+            <button onClick={() => dispatch(clearLog())} className="icon-btn" title="Clear log">
+              <ArrowClockwiseIcon size={15} color="var(--color-muted)" />
+            </button>
+            <button onClick={() => dispatch(closeOverlay())} className="icon-btn">
+              <XIcon size={18} color="var(--color-muted)" />
+            </button>
+          </div>
+          <span className="text-[11px] text-muted font-ui truncate">{subtitle}</span>
         </div>
 
         {/* Log lines */}

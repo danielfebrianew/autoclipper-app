@@ -64,6 +64,7 @@ function AppInner() {
     EventsOn('download:complete', (ev: { project_id?: string; video_id?: string; new_clips?: number }) => {
       const key = ev.project_id || ev.video_id || ''
       dispatch(clearDownloadProgress(key))
+      dispatch(setStreaming(false))
       delete lastStep[key]
       dispatch(fetchProjects())
       if (ev.project_id) dispatch(fetchClips(ev.project_id))
@@ -80,6 +81,7 @@ function AppInner() {
     EventsOn('download:error', (ev: { project_id?: string; video_id?: string; step: string; error: string }) => {
       const key = ev.project_id || ev.video_id || ''
       dispatch(clearDownloadProgress(key))
+      dispatch(setStreaming(false))
       delete lastStep[key]
       dispatch(fetchProjects())   // refresh so the thread step turns red
       toastError(`Gagal di tahap ${ev.step}: ${ev.error}`)

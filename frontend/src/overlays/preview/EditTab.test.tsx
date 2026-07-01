@@ -13,21 +13,27 @@ function setup(props: Partial<Parameters<typeof EditTab>[0]> = {}) {
   const onRatioChange = vi.fn()
   const onShowCropChange = vi.fn()
   const onShowCaptionChange = vi.fn()
+  const onInChange = vi.fn()
+  const onOutChange = vi.fn()
   render(
     <EditTab
       clip={clip()}
       inPoint={0}
       outPoint={30}
+      windowStart={0}
+      windowEnd={90}
       ratio="9:16"
       showCrop
       showCaption
+      onInChange={onInChange}
+      onOutChange={onOutChange}
       onRatioChange={onRatioChange}
       onShowCropChange={onShowCropChange}
       onShowCaptionChange={onShowCaptionChange}
       {...props}
     />,
   )
-  return { onRatioChange, onShowCropChange, onShowCaptionChange }
+  return { onRatioChange, onShowCropChange, onShowCaptionChange, onInChange, onOutChange }
 }
 
 describe('EditTab', () => {
@@ -47,6 +53,35 @@ describe('EditTab', () => {
     await user.click(screen.getByRole('button', { name: '1:1' }))
     expect(onRatioChange).toHaveBeenCalledWith('1:1')
     await waitFor(() => expect(calls.SetClipAspectRatio).toContainEqual(['c1', '1:1']))
+  })
+
+  it('commits IN typed as mm:ss', async () => {
+    const user = userEvent.setup()
+    const { onInChange } = setup()
+    const input = screen.getByLabelText('IN')
+    await user.clear(input)
+    await user.type(input, '0:15{Enter}')
+    expect(onInChange).toHaveBeenCalledWith(15)
+  })
+
+  it('commits OUT typed as plain seconds', async () => {
+    const user = userEvent.setup()
+    const { onOutChange } = setup()
+    const input = screen.getByLabelText('OUT')
+    await user.clear(input)
+    await user.type(input, '20{Enter}')
+    expect(onOutChange).toHaveBeenCalledWith(20)
+  })
+
+  it('reverts on invalid input without committing', async () => {
+    const user = userEvent.setup()
+    const { onInChange } = setup()
+    const input = screen.getByLabelText('IN') as HTMLInputElement
+    await user.clear(input)
+    await user.type(input, 'abc')
+    await user.tab()  // blur → commit
+    expect(onInChange).not.toHaveBeenCalled()
+    expect(input.value).toBe('0:00')  // reverted to formatted inPoint
   })
 
   it('toggles the face-track and caption overlays', async () => {

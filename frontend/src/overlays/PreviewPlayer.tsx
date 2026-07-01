@@ -71,6 +71,7 @@ export default function PreviewPlayer() {
 
   // Source video dimensions for normalizing pixel-coord face data
   const [sourceDims, setSourceDims] = useState({ w: 1920, h: 1080 })
+  const [sourceDuration, setSourceDuration] = useState(0)
 
   // Face samples: tier 1 = primary face track (normalized), tier 2 = multi-face from stored JSON (pixels)
   const [faceSamplesTier1, setFaceSamplesTier1] = useState<FaceSample[]>([])
@@ -174,6 +175,31 @@ export default function PreviewPlayer() {
     return computeZones(trackTemplate, ratio, faces, sourceAspect)
   }, [trackTemplate, ratio, faceSamples, currentTime, sourceAspect])
 
+  // Editable window: allow extending IN 30s earlier and OUT 60s later than the
+  // ORIGINAL Gemini clip bounds, clamped to the source video. Computed from the
+  // ORIGINAL start/end (not live inPoint/outPoint) so the window stays fixed
+  // while dragging. Until the source video reports its real duration, fall back
+  // generously to end + OUT_HEADROOM.
+  const IN_HEADROOM = 30
+  const OUT_HEADROOM = 60
+  const { windowStart, windowEnd, windowLen } = useMemo(() => {
+    const s = clip?.start_seconds ?? 0
+    const e = clip?.end_seconds ?? 0
+    const srcDur = sourceDuration > 0 ? sourceDuration : e + OUT_HEADROOM
+    const ws = Math.max(0, s - IN_HEADROOM)
+    const we = Math.min(srcDur, e + OUT_HEADROOM)
+    return { windowStart: ws, windowEnd: we, windowLen: Math.max(we - ws, 0.001) }
+  }, [clip?.start_seconds, clip?.end_seconds, sourceDuration])
+
+  const clampIn = useCallback(
+    (v: number) => Math.min(Math.max(v, windowStart), outPoint - 0.5),
+    [windowStart, outPoint],
+  )
+  const clampOut = useCallback(
+    (v: number) => Math.max(Math.min(v, windowEnd), inPoint + 0.5),
+    [windowEnd, inPoint],
+  )
+
   const saveTimestamp = useCallback((ip: number, op: number) => {
     if (!clip) return
     if (tsDebounce.current) clearTimeout(tsDebounce.current)
@@ -199,13 +225,13 @@ export default function PreviewPlayer() {
         sourceRef.current?.toggle()
         break
       case 'ArrowLeft':
-        handleSeek(Math.max(inPoint, currentTime - 1 / 30))
+        handleSeek(Math.max(windowStart, currentTime - 1 / 30))
         break
       case 'ArrowRight':
-        handleSeek(Math.min(outPoint, currentTime + 1 / 30))
+        handleSeek(Math.min(windowEnd, currentTime + 1 / 30))
         break
-      case 'i': case 'I': handleInChange(currentTime); break
-      case 'o': case 'O': handleOutChange(currentTime); break
+      case 'i': case 'I': handleInChange(clampIn(currentTime)); break
+      case 'o': case 'O': handleOutChange(clampOut(currentTime)); break
     }
   }
 
@@ -325,7 +351,10 @@ export default function PreviewPlayer() {
                   smooth={trackSmooth}
                   onTimeUpdate={t => setCurrentTime(t)}
                   onPlayStateChange={setPlaying}
-                  onLoadedMetadata={(w, h) => setSourceDims({ w, h })}
+                  onLoadedMetadata={(w, h, dur) => {
+                    setSourceDims({ w, h })
+                    if (Number.isFinite(dur) && dur > 0) setSourceDuration(dur)
+                  }}
                 />
                 {/* Time badge */}
                 <span className="absolute bottom-3.5 left-3.5 z-10 font-mono text-[11px] text-white/75 bg-black/50 px-1.75 py-0.5 rounded-md pointer-events-none">
@@ -371,9 +400,13 @@ export default function PreviewPlayer() {
                 clip={clip as any}
                 inPoint={inPoint}
                 outPoint={outPoint}
+                windowStart={windowStart}
+                windowEnd={windowEnd}
                 ratio={ratio}
                 showCrop={showCrop}
                 showCaption={showCaption}
+                onInChange={v => handleInChange(clampIn(v))}
+                onOutChange={v => handleOutChange(clampOut(v))}
                 onRatioChange={r => setRatio(r)}
                 onShowCropChange={setShowCrop}
                 onShowCaptionChange={setShowCaption}
@@ -429,20 +462,22 @@ export default function PreviewPlayer() {
             }
           </button>
           <span className="font-mono text-[11px] text-muted">
-            {fmtTime(currentTime - clip.start_seconds)}{' '}
+            {fmtTime(currentTime - windowStart)}{' '}
             <span className="text-faint">/ {fmtTime(clipDuration)}</span>
           </span>
         </div>
         <Timeline
-          duration={Math.max(outPoint, clip.end_seconds) - clip.start_seconds}
-          inPoint={inPoint - clip.start_seconds}
-          outPoint={outPoint - clip.start_seconds}
-          currentTime={currentTime - clip.start_seconds}
+          duration={windowLen}
+          inPoint={inPoint - windowStart}
+          outPoint={outPoint - windowStart}
+          currentTime={currentTime - windowStart}
           waveform={waveform}
           thumbnails={thumbnails}
-          onInChange={v => handleInChange(v + clip.start_seconds)}
-          onOutChange={v => handleOutChange(v + clip.start_seconds)}
-          onSeek={v => handleSeek(v + clip.start_seconds)}
+          waveformStart={clip.start_seconds - windowStart}
+          waveformEnd={clip.end_seconds - windowStart}
+          onInChange={v => handleInChange(v + windowStart)}
+          onOutChange={v => handleOutChange(v + windowStart)}
+          onSeek={v => handleSeek(v + windowStart)}
         />
       </div>
     </div>
