@@ -77,6 +77,30 @@ def test_parse_json_strips_markdown_fence():
     assert _parse_json(raw) == {"clips": [], "speakers": []}
 
 
+def test_clamp_durations_trims_overlong_clip():
+    from routers.analyze import _clamp_durations
+    clips = [{"clip_id": 1, "start_seconds": 4988, "end_seconds": 5397,
+              "duration_seconds": 409, "end_time": "89:57"}]
+    out = _clamp_durations(clips, 90)
+    assert out[0]["end_seconds"] == 5078
+    assert out[0]["duration_seconds"] == 90
+    assert out[0]["end_time"] == "84:38"
+
+
+def test_clamp_durations_keeps_within_limit_untouched():
+    from routers.analyze import _clamp_durations
+    clips = [{"clip_id": 2, "start_seconds": 10, "end_seconds": 60, "duration_seconds": 50}]
+    out = _clamp_durations(clips, 90)
+    assert out[0]["end_seconds"] == 60
+    assert out[0]["duration_seconds"] == 50
+
+
+def test_clamp_durations_noop_when_max_zero():
+    from routers.analyze import _clamp_durations
+    clips = [{"start_seconds": 0, "end_seconds": 999}]
+    assert _clamp_durations(clips, 0)[0]["end_seconds"] == 999
+
+
 # --- Endpoint tests ---
 
 def test_analyze_returns_clips_and_speakers(monkeypatch):

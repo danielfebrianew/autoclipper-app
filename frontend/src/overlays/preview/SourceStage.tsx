@@ -46,6 +46,9 @@ export default forwardRef<SourceStageHandle, Props>(function SourceStage(
     v.currentTime = inPoint
   }, [src])
 
+  // Re-attach when `src` changes: the <video> element only mounts once src is
+  // truthy (it loads async), so effects keyed on [] would bail on first mount
+  // and never wire up — leaving the play/pause icon stuck.
   useEffect(() => {
     const v = videoRef.current
     if (!v) return
@@ -59,7 +62,7 @@ export default forwardRef<SourceStageHandle, Props>(function SourceStage(
     }
     v.addEventListener('timeupdate', handler)
     return () => v.removeEventListener('timeupdate', handler)
-  }, [])
+  }, [src])
 
   useEffect(() => {
     const v = videoRef.current
@@ -68,11 +71,13 @@ export default forwardRef<SourceStageHandle, Props>(function SourceStage(
     const onPause = () => onPlayStateChange(false)
     v.addEventListener('play', onPlay)
     v.addEventListener('pause', onPause)
+    // Sync initial state in case the video is already playing/paused when we attach.
+    onPlayStateChange(!v.paused)
     return () => {
       v.removeEventListener('play', onPlay)
       v.removeEventListener('pause', onPause)
     }
-  }, [])
+  }, [src])
 
   return (
     <div className="relative rounded-[14px] overflow-hidden bg-[#0a0712] border border-border w-full h-full">

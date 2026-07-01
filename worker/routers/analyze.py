@@ -17,11 +17,16 @@ Kamu akan menerima:
 3. METADATA video (judul, channel, durasi)
 
 ATURAN TIMESTAMP (PENTING!):
+- BATAS DURASI WAJIB: setiap clip HARUS antara {min_duration}-{max_duration} detik. INI KERAS.
+  Jika sebuah momen bagus tapi butuh lebih dari {max_duration} detik untuk selesai,
+  PERSEMPIT ke inti yang paling viral (punchline / payoff), JANGAN sertakan seluruh topik.
+  Clip di atas {max_duration} detik DITOLAK — jangan pernah menghasilkannya.
 - start_time harus mulai MINIMAL 3 detik SEBELUM momen inti dimulai
-- end_time harus berakhir SETELAH kalimat penutup topik benar-benar selesai diucapkan — jangan potong di tengah argumen atau kalimat
+- end_time berakhir di jeda natural setelah punchline/payoff — jangan potong di tengah kalimat,
+  tapi juga JANGAN memanjangkan sampai seluruh diskusi/topik selesai hanya demi "kelengkapan"
 - Pastikan potongan mulai dan berakhir di jeda natural (antar kalimat, bukan di tengah kata)
 - Sertakan timestamp dalam format "MM:SS" DAN dalam total detik
-- Lebih baik kelebihan 5–10 detik daripada terpotong
+- Prioritaskan clip yang RINGKAS & padat; buffer beberapa detik boleh, tapi tetap dalam batas durasi
 - end_cue: tulis KATA-KATA TERAKHIR yang benar-benar diucapkan sebelum clip berakhir (kutip verbatim dari transcript, minimal 8 kata)
 
 JIKA HEATMAP DATA TERSEDIA:
@@ -79,7 +84,7 @@ def _build_user_prompt(
 
     action = f"Temukan {max_clips} klip BARU yang belum tercakup di atas." if exclude_clips else f"identifikasi {max_clips} momen terbaik"
 
-    return f"""Analisis video berikut dan {action} untuk dijadikan short clip ({min_duration}-{max_duration} detik). Kasih buffer {buffer} detik di awal dan akhir tiap momen.{exclude_section}
+    return f"""Analisis video berikut dan {action} untuk dijadikan short clip. WAJIB setiap clip berdurasi {min_duration}-{max_duration} detik — TIDAK BOLEH lebih dari {max_duration} detik. Kasih buffer {buffer} detik di awal dan akhir tiap momen, tapi tetap di dalam batas durasi.{exclude_section}
 
 ## VIDEO INFO
 - Judul: {title}
@@ -154,6 +159,32 @@ def _parse_json(raw: str) -> dict:
     return json.loads(raw.strip())
 
 
+def _clamp_durations(clips: list[dict], max_duration: int) -> list[dict]:
+    """Trim any clip longer than max_duration by pulling end_seconds back to
+    start_seconds + max_duration. Keeps the clip (does not drop it) so the user
+    can extend it again manually in the preview editor. Recomputes end_time and
+    duration_seconds to stay consistent."""
+    if max_duration <= 0:
+        return clips
+    for c in clips:
+        try:
+            start = int(c.get("start_seconds") or 0)
+            end = int(c.get("end_seconds") or 0)
+        except (TypeError, ValueError):
+            continue
+        if end - start > max_duration:
+            new_end = start + max_duration
+            logger.info(
+                "clip %s: durasi %ds > max %ds — dipotong ke %ds (%d→%d)",
+                c.get("clip_id"), end - start, max_duration, max_duration, end, new_end,
+            )
+            c["end_seconds"] = new_end
+            c["duration_seconds"] = max_duration
+            m, s = divmod(new_end, 60)
+            c["end_time"] = f"{m:02d}:{s:02d}"
+    return clips
+
+
 class AnalyzeRequest(BaseModel):
     transcript: str
     heatmap_text: str
@@ -197,7 +228,9 @@ def analyze_video(req: AnalyzeRequest):
     payload = {
         "model": req.model,
         "messages": [
-            {"role": "system", "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
+            {"role": "system", "content": [{"type": "text", "text": SYSTEM_PROMPT.format(
+                min_duration=req.min_duration, max_duration=req.max_duration,
+            )}]},
             {"role": "user", "content": [{"type": "text", "text": user_prompt}]},
         ],
         "stream": False,
@@ -247,5 +280,10 @@ def analyze_video(req: AnalyzeRequest):
         validate_and_snap(result, req.snippets)
         clips = result["clips"]
         logger.info("Timestamp snapping selesai")
+
+    # Safety net: prompt bisa meleset & snapping bisa menambah durasi. Clamp end ke
+    # start+max_duration agar tak ada clip kepanjangan. Sengaja MEMOTONG (bukan buang)
+    # supaya clip tetap ada — user bisa memperpanjang lagi manual di preview editor.
+    clips = _clamp_durations(clips, req.max_duration)
 
     return {"clips": clips, "speakers": speakers}
