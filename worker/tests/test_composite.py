@@ -106,6 +106,48 @@ def test_composite_split_path(monkeypatch, tmp_path):
     assert calls["is_split"] == [True, False]
 
 
+def test_composite_reserve_bottom_reaches_single(monkeypatch, tmp_path):
+    calls = {}
+
+    def _single(clip_path, centers, src_w, src_h, ass_path, output_path, **kw):
+        calls["reserve_bottom"] = kw.get("reserve_bottom")
+
+    _patch(monkeypatch, single=_single)
+
+    from main import app
+    resp = TestClient(app).post("/composite", json=_base_req(
+        out_dir=str(tmp_path), reserve_bottom=True,
+    ))
+    assert resp.status_code == 200
+    assert calls["reserve_bottom"] is True
+
+
+def test_composite_reserve_bottom_reaches_split(monkeypatch, tmp_path):
+    calls = {}
+
+    def _split(clip_path, cl, cr, centers, is_split, src_w, src_h, ass_path, output_path, **kw):
+        calls["reserve_bottom"] = kw.get("reserve_bottom")
+
+    _patch(monkeypatch, split=_split)
+
+    from main import app
+    resp = TestClient(app).post("/composite", json=_base_req(
+        out_dir=str(tmp_path),
+        centers_left=[1.0, 2.0], centers_right=[3.0, 4.0], is_split=[True, False],
+        reserve_bottom=True,
+    ))
+    assert resp.status_code == 200
+    assert calls["reserve_bottom"] is True
+
+
+def test_crop_fill_shape_and_aspect():
+    from processing.ffmpeg_utils import _crop_fill
+    frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    # 9:16 top-60% box on 1080p source: out_w=607, top_h=648
+    out = _crop_fill(frame, cx=960, box_w=607, box_h=648, src_w=1920, src_h=1080)
+    assert out.shape == (648, 607, 3)
+
+
 def test_composite_error_is_500(monkeypatch, tmp_path):
     def _boom(*a, **k):
         raise RuntimeError("ffmpeg exploded")

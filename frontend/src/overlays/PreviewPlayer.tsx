@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { XIcon, ScissorsIcon, ClosedCaptioningIcon, TargetIcon, ArrowsOutIcon, ArrowsInIcon, ExportIcon, PlayIcon, PauseIcon } from '@phosphor-icons/react'
+import { XIcon, ScissorsIcon, ClosedCaptioningIcon, TargetIcon, ArrowsOutIcon, ArrowsInIcon, ExportIcon, PlayIcon, PauseIcon, SpeakerHighIcon, SpeakerLowIcon, SpeakerSlashIcon } from '@phosphor-icons/react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { closeOverlay, openExport, setPreviewTab } from '../store/slices/uiSlice'
 import { fetchClips } from '../store/slices/clipSlice'
@@ -30,8 +30,7 @@ const PREVIEW_FLEX: Record<string, string> = {
 
 function buildCropLabel(ratio: string, template: string): string {
   const templateDesc: Record<string, string> = {
-    single: 'face tracking', single_top: 'face top', dual: '2 speakers',
-    dual_side: '2 side', speaker: 'speaker focus', static: 'static crop',
+    single: 'face tracking', dual: '2 speakers',
   }
   return `${ratio} crop · ${templateDesc[template] ?? template}`
 }
@@ -45,6 +44,8 @@ export default function PreviewPlayer() {
 
   const sourceRef = useRef<SourceStageHandle>(null)
   const [playing, setPlaying] = useState(false)
+  const [volume, setVolume] = useState(1)
+  const [muted, setMuted] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [videoSrc, setVideoSrc] = useState('')
   const [videoDiskPath, setVideoDiskPath] = useState('')  // path disk absolut utk decoder native
@@ -64,6 +65,7 @@ export default function PreviewPlayer() {
   const [trackSmooth, setTrackSmooth] = useState(true)
   const [trackLockMain, setTrackLockMain] = useState(false)
   const [trackSensitivity, setTrackSensitivity] = useState(50)
+  const [trackReserveBottom, setTrackReserveBottom] = useState(false)
 
   const [split, setSplit] = useState(false)
   const [showCrop, setShowCrop] = useState(true)
@@ -89,10 +91,13 @@ export default function PreviewPlayer() {
     setCaptionPosition(clip.caption_position || 'bot')
     setCaptionSize(clip.caption_size || 'M')
     setCaptionText(clip.caption_text || '')
-    setTrackTemplate(clip.track_template || 'single')
+    // Only 'single'/'dual' remain; map any legacy template to 'single'.
+    const tpl = clip.track_template
+    setTrackTemplate(tpl === 'single' || tpl === 'dual' ? tpl : 'single')
     setTrackSmooth(clip.track_smooth ?? true)
     setTrackLockMain(clip.track_lock_main ?? false)
     setTrackSensitivity(clip.track_sensitivity ?? 50)
+    setTrackReserveBottom(clip.track_reserve_bottom ?? false)
   }, [previewClipId])
 
   useEffect(() => {
@@ -144,7 +149,7 @@ export default function PreviewPlayer() {
   }, [transcript, currentTime])
 
   const faceSamples = useMemo<FaceSample[]>(() => {
-    const isDualTemplate = trackTemplate === 'dual' || trackTemplate === 'dual_side'
+    const isDualTemplate = trackTemplate === 'dual'
     const tier2HasMultiFace = faceSamplesTier2.some(s => s.faces.length >= 2)
 
     if (isDualTemplate && tier2HasMultiFace && faceSamplesTier2.length > 0) {
@@ -172,8 +177,8 @@ export default function PreviewPlayer() {
 
   const zones = useMemo(() => {
     const faces = facesAt(faceSamples, currentTime)
-    return computeZones(trackTemplate, ratio, faces, sourceAspect)
-  }, [trackTemplate, ratio, faceSamples, currentTime, sourceAspect])
+    return computeZones(trackTemplate, ratio, faces, sourceAspect, trackReserveBottom)
+  }, [trackTemplate, ratio, faceSamples, currentTime, sourceAspect, trackReserveBottom])
 
   // Editable window: allow extending IN 30s earlier and OUT 60s later than the
   // ORIGINAL Gemini clip bounds, clamped to the source video. Computed from the
@@ -345,6 +350,8 @@ export default function PreviewPlayer() {
                   src={videoSrc}
                   inPoint={inPoint}
                   outPoint={outPoint}
+                  volume={volume}
+                  muted={muted}
                   showCrop={showCrop}
                   cropZones={cropZones}
                   cropLabel={cropLabel}
@@ -432,11 +439,13 @@ export default function PreviewPlayer() {
                 smooth={trackSmooth}
                 lockMain={trackLockMain}
                 sensitivity={trackSensitivity}
+                reserveBottom={trackReserveBottom}
                 onTemplateChange={setTrackTemplate}
                 onOptsChange={opts => {
                   setTrackSmooth(opts.smooth)
                   setTrackLockMain(opts.lockMain)
                   setTrackSensitivity(opts.sensitivity)
+                  setTrackReserveBottom(opts.reserveBottom)
                 }}
                 onRetrack={() => {
                   if (clip?.id) loadFaceData(clip.id)
@@ -449,22 +458,55 @@ export default function PreviewPlayer() {
 
       {/* Transport bar + Timeline */}
       <div className="border-t border-border-soft bg-black/25 shrink-0">
-        {/* Transport row */}
-        <div className="flex items-center gap-3 px-4 pt-2">
+        {/* Transport row: time (left) · play (center) · volume (right) */}
+        <div className="grid grid-cols-3 items-center px-4 pt-2">
+          {/* Left — time readout */}
+          <span className="font-mono text-[11px] text-muted justify-self-start">
+            {fmtTime(currentTime - windowStart)}{' '}
+            <span className="text-faint">/ {fmtTime(clipDuration)}</span>
+          </span>
+
+          {/* Center — play/pause */}
           <button
             onClick={() => sourceRef.current?.toggle()}
             title="Space"
-            className="w-8.5 h-8.5 rounded-full border-none cursor-pointer bg-accent shrink-0 flex items-center justify-center shadow-[0_2px_12px_rgba(123,97,255,0.4)]"
+            className="w-8.5 h-8.5 rounded-full border-none cursor-pointer bg-accent shrink-0 flex items-center justify-center shadow-[0_2px_12px_rgba(123,97,255,0.4)] justify-self-center"
           >
             {playing
               ? <PauseIcon size={16} weight="fill" color="#fff" />
               : <PlayIcon size={16} weight="fill" color="#fff" style={{ marginLeft: 1 }} />
             }
           </button>
-          <span className="font-mono text-[11px] text-muted">
-            {fmtTime(currentTime - windowStart)}{' '}
-            <span className="text-faint">/ {fmtTime(clipDuration)}</span>
-          </span>
+
+          {/* Right — volume */}
+          <div className="flex items-center gap-2 justify-self-end">
+            <button
+              onClick={() => setMuted(m => !m)}
+              title={muted ? 'Unmute' : 'Mute'}
+              className="icon-btn shrink-0"
+            >
+              {muted || volume === 0
+                ? <SpeakerSlashIcon size={17} color="var(--color-muted)" />
+                : volume < 0.5
+                  ? <SpeakerLowIcon size={17} color="var(--color-muted)" />
+                  : <SpeakerHighIcon size={17} color="var(--color-muted)" />}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={muted ? 0 : volume}
+              onChange={e => {
+                const v = Number(e.target.value)
+                setVolume(v)
+                if (v > 0 && muted) setMuted(false)
+                if (v === 0) setMuted(true)
+              }}
+              title="Volume"
+              className="w-24 accent-accent-hi cursor-pointer"
+            />
+          </div>
         </div>
         <Timeline
           duration={windowLen}

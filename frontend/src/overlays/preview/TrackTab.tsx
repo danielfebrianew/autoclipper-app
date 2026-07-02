@@ -10,24 +10,8 @@ const TEMPLATES = [
     diagram: '┌──────┐\n│  ██  │\n└──────┘',
   },
   {
-    id: 'single_top', label: 'Single Atas', desc: 'Satu speaker, atas',
-    diagram: '┌──────┐\n│ ██   │\n│      │\n└──────┘',
-  },
-  {
     id: 'dual', label: 'Dual', desc: 'Dua speaker berdampingan',
     diagram: '┌──────┐\n│ █  █ │\n└──────┘',
-  },
-  {
-    id: 'dual_side', label: 'Dual Sisi', desc: 'Dua speaker bertumpuk',
-    diagram: '┌──────┐\n│ ████ │\n│ ████ │\n└──────┘',
-  },
-  {
-    id: 'speaker', label: 'Speaker', desc: 'Ikuti pembicara aktif',
-    diagram: '┌──────┐\n│ →██← │\n└──────┘',
-  },
-  {
-    id: 'static', label: 'Static', desc: 'Crop tetap, tidak bergerak',
-    diagram: '┌──────┐\n│[████]│\n└──────┘',
   },
 ]
 
@@ -37,13 +21,14 @@ interface Props {
   smooth: boolean
   lockMain: boolean
   sensitivity: number
+  reserveBottom: boolean
   onTemplateChange: (t: string) => void
-  onOptsChange: (opts: { smooth: boolean; lockMain: boolean; sensitivity: number }) => void
+  onOptsChange: (opts: { smooth: boolean; lockMain: boolean; sensitivity: number; reserveBottom: boolean }) => void
   onRetrack: () => void
 }
 
 export default function TrackTab({
-  clipId, template, smooth, lockMain, sensitivity,
+  clipId, template, smooth, lockMain, sensitivity, reserveBottom,
   onTemplateChange, onOptsChange, onRetrack,
 }: Props) {
   const [retracking, setRetracking] = useState(false)
@@ -53,10 +38,13 @@ export default function TrackTab({
     SetClipTrackTemplate(clipId, id).catch(() => {})
   }
 
-  function handleOpts(patch: Partial<{ smooth: boolean; lockMain: boolean; sensitivity: number }>) {
-    const next = { smooth, lockMain, sensitivity, ...patch }
+  function handleOpts(patch: Partial<{ smooth: boolean; lockMain: boolean; sensitivity: number; reserveBottom: boolean }>) {
+    const next = { smooth, lockMain, sensitivity, reserveBottom, ...patch }
     onOptsChange(next)
-    SetClipTrackOpts(clipId, { smooth: next.smooth, lock_main: next.lockMain, sensitivity: next.sensitivity }).catch(() => {})
+    SetClipTrackOpts(clipId, {
+      smooth: next.smooth, lock_main: next.lockMain,
+      sensitivity: next.sensitivity, reserve_bottom: next.reserveBottom,
+    }).catch(() => {})
   }
 
   async function handleRetrack() {
@@ -108,6 +96,7 @@ export default function TrackTab({
         <div className="flex flex-col gap-2.5">
           <ToggleRow label="Smooth gerakan" value={smooth} onChange={v => handleOpts({ smooth: v })} />
           <ToggleRow label="Lock pembicara utama" value={lockMain} onChange={v => handleOpts({ lockMain: v })} />
+          <ToggleRow label="Ruang kosong bawah (untuk overlay edit)" value={reserveBottom} onChange={v => handleOpts({ reserveBottom: v })} />
         </div>
       </section>
 

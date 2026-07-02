@@ -529,9 +529,10 @@ type CaptionOpts struct {
 }
 
 type TrackOpts struct {
-	Smooth      bool `json:"smooth"`
-	LockMain    bool `json:"lock_main"`
-	Sensitivity int  `json:"sensitivity"` // 0..100
+	Smooth        bool `json:"smooth"`
+	LockMain      bool `json:"lock_main"`
+	Sensitivity   int  `json:"sensitivity"` // 0..100
+	ReserveBottom bool `json:"reserve_bottom"`
 }
 
 func (a *App) GetClipWaveform(clipID string) ([]float64, error) {
@@ -794,10 +795,10 @@ func (a *App) RegenerateSubtitle(clipID string) (string, error) {
 
 	splitMode := c.TrackTemplate == "dual" || c.TrackTemplate == "dual_side"
 	subResp, err := a.worker.GenerateSubtitle(context.Background(), pipeline.SubtitleRequest{
-		Words:        whisperResp.Words,
-		Style:        c.CaptionStyle,
-		Position:     c.CaptionPosition,
-		Size:         c.CaptionSize,
+		Words:    whisperResp.Words,
+		Style:    c.CaptionStyle,
+		Position: c.CaptionPosition,
+		Size:     c.CaptionSize,
 		// CaptionText sengaja dikosongkan: kita ingin subtitle ber-timing per kata,
 		// bukan satu blok caption statis.
 		ClipDuration: float64(c.EndSeconds - c.StartSeconds),
@@ -820,7 +821,7 @@ func (a *App) SetClipTrackTemplate(clipID, templateID string) error {
 }
 
 func (a *App) SetClipTrackOpts(clipID string, opts TrackOpts) error {
-	return a.clipSvc.SetTrackOpts(clipID, opts.Smooth, opts.LockMain, opts.Sensitivity)
+	return a.clipSvc.SetTrackOpts(clipID, opts.Smooth, opts.LockMain, opts.Sensitivity, opts.ReserveBottom)
 }
 
 func (a *App) RetrackFaces(clipID string) error {

@@ -13,6 +13,7 @@ function setup(props: Partial<Parameters<typeof TrackTab>[0]> = {}) {
       smooth
       lockMain={false}
       sensitivity={50}
+      reserveBottom={false}
       onTemplateChange={onTemplateChange}
       onOptsChange={onOptsChange}
       onRetrack={onRetrack}
@@ -23,10 +24,13 @@ function setup(props: Partial<Parameters<typeof TrackTab>[0]> = {}) {
 }
 
 describe('TrackTab', () => {
-  it('renders all six templates', () => {
+  it('renders exactly the two supported templates', () => {
     setup()
-    for (const label of ['Single', 'Single Atas', 'Dual', 'Dual Sisi', 'Speaker', 'Static']) {
+    for (const label of ['Single', 'Dual']) {
       expect(screen.getByText(label)).toBeInTheDocument()
+    }
+    for (const label of ['Single Atas', 'Dual Sisi', 'Speaker', 'Static']) {
+      expect(screen.queryByText(label)).toBeNull()
     }
   })
 
@@ -44,6 +48,17 @@ describe('TrackTab', () => {
     const toggles = screen.getAllByRole('button').filter(b => b.className.includes('toggle'))
     await user.click(toggles[0]) // smooth → off
     expect(onOptsChange).toHaveBeenCalledWith(expect.objectContaining({ smooth: false }))
+  })
+
+  it('toggles reserve-bottom and persists reserve_bottom', async () => {
+    const user = userEvent.setup()
+    const { onOptsChange } = setup()
+    const toggles = screen.getAllByRole('button').filter(b => b.className.includes('toggle'))
+    await user.click(toggles[2]) // reserve bottom → on
+    expect(onOptsChange).toHaveBeenCalledWith(expect.objectContaining({ reserveBottom: true }))
+    await waitFor(() => expect(calls.SetClipTrackOpts).toContainEqual(
+      ['c1', expect.objectContaining({ reserve_bottom: true })],
+    ))
   })
 
   it('updates sensitivity from the slider', () => {

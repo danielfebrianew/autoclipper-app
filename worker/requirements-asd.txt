@@ -1,0 +1,6 @@
+# Optional deps for Active Speaker Detection (Light-ASD).
+# Install only if you need AUTOCLIPPER_ASD=1 support:
+#   python3 -m pip install -r requirements-asd.txt
+torch>=2.4.1
+scipy>=1.14.1
+python_speech_features==0.6

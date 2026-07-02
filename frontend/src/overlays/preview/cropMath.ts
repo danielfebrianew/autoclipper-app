@@ -18,13 +18,10 @@ export interface Zone {
   rect: NormBox  // placement in output canvas (normalized 0-1)
 }
 
-export const TEMPLATE_META: Record<string, { count: number; stack?: boolean; topBias?: boolean; fixed?: boolean }> = {
-  single:     { count: 1 },
-  single_top: { count: 1, topBias: true },
-  dual:       { count: 2, stack: true },
-  dual_side:  { count: 2, stack: false },
-  speaker:    { count: 1 },
-  static:     { count: 0, fixed: true },
+// Only two tracking modes remain. Any other value is treated as 'single'.
+export const TEMPLATE_META: Record<string, { count: number }> = {
+  single: { count: 1 },
+  dual:   { count: 2 },
 }
 
 function clamp(v: number, min: number, max: number) {
@@ -57,91 +54,50 @@ export function computeZones(
   ratio: string,
   faces: NormBox[],
   sourceAspect: number,  // e.g. 16/9
+  reserveBottom = false,
 ): Zone[] {
-  const meta = TEMPLATE_META[template] ?? TEMPLATE_META.single
+  const isDual = template === 'dual'
   const A = RATIO_VALUE[ratio] ?? RATIO_VALUE['9:16']
+  // When reserve_bottom is on, content occupies only the top 60% of the frame.
+  const bandH = reserveBottom ? 0.6 : 1
 
-  // --- static: fixed centered crop, no face tracking ---
-  if (meta.fixed || meta.count === 0) {
-    const cropW = clamp(A / sourceAspect, 0, 1)
-    const cropH = clamp(cropW > 0 ? 1 : sourceAspect / A, 0, 1)
-    return [{ crop: centeredCrop(cropW, cropH), rect: { x: 0, y: 0, w: 1, h: 1 } }]
-  }
-
-  // --- single zone templates (single, single_top, speaker) ---
-  if (meta.count === 1) {
-    const cropH = 1
-    const cropW = clamp(A / sourceAspect, 0, 1)
-    const adjustedCropH = cropW === A / sourceAspect ? cropH : clamp(sourceAspect / A, 0, 1)
+  // --- single: one centered/face-tracked zone filling the (top-band) frame ---
+  if (!isDual) {
+    // The content box aspect = A / bandH (wider when the band is shorter).
+    const boxAspect = A / bandH
+    const cropW = clamp(boxAspect / sourceAspect, 0, 1)
+    const rect: NormBox = { x: 0, y: 0, w: 1, h: bandH }
 
     if (faces.length === 0) {
-      return [{ crop: centeredCrop(cropW, adjustedCropH), rect: { x: 0, y: 0, w: 1, h: 1 } }]
+      return [{ crop: centeredCrop(cropW, 1), rect }]
     }
-    const crop = cropForFace(faces[0], cropW, adjustedCropH, meta.topBias ?? false)
-    return [{ crop, rect: { x: 0, y: 0, w: 1, h: 1 } }]
+    return [{ crop: cropForFace(faces[0], cropW, 1, false), rect }]
   }
 
-  // --- dual (2 zones stacked top/bottom) ---
-  if (meta.count === 2 && meta.stack) {
-    // Each zone rect is half-height; zone aspect = A * rect.w / rect.h = A * 1 / 0.5 = 2A
-    const zoneAspect = 2 * A
-    const cropH = 1
-    const cropW = clamp(zoneAspect / sourceAspect, 0, 1)
+  // --- dual: two zones side-by-side within the (top-band) frame ---
+  // Each panel rect is half-width; panel box aspect = (A * 0.5) / bandH.
+  const zoneAspect = (A * 0.5) / bandH
+  const cropW = clamp(zoneAspect / sourceAspect, 0, 1)
+  const rects: NormBox[] = [
+    { x: 0,   y: 0, w: 0.5, h: bandH },
+    { x: 0.5, y: 0, w: 0.5, h: bandH },
+  ]
 
-    const rects: NormBox[] = [
-      { x: 0, y: 0, w: 1, h: 0.5 },
-      { x: 0, y: 0.5, w: 1, h: 0.5 },
-    ]
-
-    if (faces.length === 0) {
-      return rects.map((rect, i) => ({
-        crop: centeredCrop(cropW, cropH, i === 0 ? 0.3 : 0.7),
-        rect,
-      }))
-    }
-
-    const sorted = [...faces].sort((a, b) => (a.x + a.w / 2) - (b.x + b.w / 2))
-    const face0 = sorted[0]
-    const face1 = sorted.length > 1 ? sorted[1] : { ...face0, x: clamp(1 - (face0.x + face0.w / 2) - face0.w / 2, 0, 1 - face0.w) }
-
-    return [
-      { crop: cropForFace(face0, cropW, cropH, false), rect: rects[0] },
-      { crop: cropForFace(face1, cropW, cropH, false), rect: rects[1] },
-    ]
+  if (faces.length === 0) {
+    return rects.map((rect, i) => ({
+      crop: centeredCrop(cropW, 1, i === 0 ? 0.3 : 0.7),
+      rect,
+    }))
   }
 
-  // --- dual_side (2 zones side-by-side) ---
-  if (meta.count === 2 && !meta.stack) {
-    // Each zone rect is half-width; zone aspect = A * 0.5 / 1 = A/2
-    const zoneAspect = A / 2
-    const cropH = 1
-    const cropW = clamp(zoneAspect / sourceAspect, 0, 1)
+  const sorted = [...faces].sort((a, b) => (a.x + a.w / 2) - (b.x + b.w / 2))
+  const face0 = sorted[0]
+  const face1 = sorted.length > 1 ? sorted[1] : { ...face0, x: clamp(1 - (face0.x + face0.w / 2) - face0.w / 2, 0, 1 - face0.w) }
 
-    const rects: NormBox[] = [
-      { x: 0, y: 0, w: 0.5, h: 1 },
-      { x: 0.5, y: 0, w: 0.5, h: 1 },
-    ]
-
-    if (faces.length === 0) {
-      return rects.map((_, i) => ({
-        crop: centeredCrop(cropW, cropH, i === 0 ? 0.3 : 0.7),
-        rect: rects[i],
-      }))
-    }
-
-    const sorted = [...faces].sort((a, b) => (a.x + a.w / 2) - (b.x + b.w / 2))
-    const face0 = sorted[0]
-    const face1 = sorted.length > 1 ? sorted[1] : { ...face0, x: clamp(1 - (face0.x + face0.w / 2) - face0.w / 2, 0, 1 - face0.w) }
-
-    return [
-      { crop: cropForFace(face0, cropW, cropH, false), rect: rects[0] },
-      { crop: cropForFace(face1, cropW, cropH, false), rect: rects[1] },
-    ]
-  }
-
-  // Fallback: single centered
-  const cropW = clamp(A / sourceAspect, 0, 1)
-  return [{ crop: centeredCrop(cropW, 1), rect: { x: 0, y: 0, w: 1, h: 1 } }]
+  return [
+    { crop: cropForFace(face0, cropW, 1, false), rect: rects[0] },
+    { crop: cropForFace(face1, cropW, 1, false), rect: rects[1] },
+  ]
 }
 
 export interface FaceSample {

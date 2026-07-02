@@ -7,6 +7,26 @@ import logging
 log = logging.getLogger("worker.processing.ffmpeg")
 
 
+def _crop_fill(frame, cx, box_w, box_h, src_w, src_h):
+    """Crop a region of source aspect box_w:box_h centered horizontally on cx
+    (and vertically centered), clamped to the frame, then resize to exactly
+    (box_w, box_h). Guarantees crop-to-FILL (no letterbox, correct aspect)."""
+    box_aspect = box_w / box_h
+    # Largest region of the target aspect that fits inside the source frame.
+    crop_w = min(src_w, int(round(src_h * box_aspect)))
+    crop_h = int(round(crop_w / box_aspect))
+    if crop_h > src_h:
+        crop_h = src_h
+        crop_w = int(round(crop_h * box_aspect))
+
+    x1 = int(round(cx - crop_w / 2))
+    x1 = max(0, min(x1, src_w - crop_w))
+    y1 = max(0, (src_h - crop_h) // 2)  # vertical center
+
+    region = frame[y1:y1 + crop_h, x1:x1 + crop_w]
+    return cv2.resize(region, (box_w, box_h), interpolation=cv2.INTER_AREA)
+
+
 def _pick_encoder() -> str:
     setting = config.VIDEO_ENCODER
     if setting not in ("auto", ""):
@@ -75,14 +95,21 @@ def composite(
     channel_name: str = "",
     source_credit: str = "",
     ratio: str = "9:16",
+    reserve_bottom: bool = False,
 ) -> None:
     """
     Composite per-frame: crop bergerak sesuai centers[frame_idx], burn subtitle ASS,
     overlay drawtext opsional, encode ke output_path.
+
+    reserve_bottom: bila True, konten di-crop-to-fill ke 60% atas frame dan 40%
+    bawah dibiarkan hitam (untuk overlay edit clip). Bila False, crop mengisi
+    frame penuh (perilaku lama).
     """
     from processing.reframe import RATIO_MAP
     ratio_val = RATIO_MAP.get(ratio, 9 / 16)
-    crop_w = int(src_h * ratio_val)
+    out_w = int(src_h * ratio_val)
+    out_h = src_h
+    top_h = int(out_h * config.SPLIT_SCREEN_TOP_RATIO) if reserve_bottom else out_h
 
     cap = cv2.VideoCapture(clip_path)
     src_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
@@ -112,7 +139,7 @@ def composite(
         "ffmpeg",
         "-f", "rawvideo",
         "-vcodec", "rawvideo",
-        "-s", f"{crop_w}x{src_h}",
+        "-s", f"{out_w}x{out_h}",
         "-pix_fmt", "bgr24",
         "-r", f"{src_fps}",
         "-i", "-",
@@ -128,6 +155,7 @@ def composite(
 
     assert proc.stdin is not None
 
+    black = np.zeros((out_h - top_h, out_w, 3), dtype=np.uint8)
     frame_idx = 0
     try:
         while True:
@@ -135,11 +163,15 @@ def composite(
             if not ret:
                 break
             cx = centers[min(frame_idx, len(centers) - 1)]
-            x1 = int(cx - crop_w / 2)
-            x1 = max(0, min(x1, src_w - crop_w))
-            cropped = frame[:, x1:x1 + crop_w]
+            if reserve_bottom:
+                top = _crop_fill(frame, cx, out_w, top_h, src_w, src_h)
+                out_frame = np.vstack([top, black])
+            else:
+                x1 = int(cx - out_w / 2)
+                x1 = max(0, min(x1, src_w - out_w))
+                out_frame = frame[:, x1:x1 + out_w]
             try:
-                proc.stdin.write(cropped.tobytes())
+                proc.stdin.write(out_frame.tobytes())
             except BrokenPipeError:
                 break
             frame_idx += 1
@@ -169,13 +201,18 @@ def composite_split(
     output_path: str,
     channel_name: str = "",
     source_credit: str = "",
+    reserve_bottom: bool = False,
 ) -> None:
     """
-    Split-screen composite: top 60% → dua panel speaker, bottom 40% → hitam.
+    Dua panel speaker side-by-side, di-crop-to-fill.
+
+    reserve_bottom: bila True, panel mengisi 60% atas dan 40% bawah hitam
+    (untuk overlay edit clip). Bila False, panel mengisi tinggi frame penuh.
     """
-    panel_w = int(src_h * 9 / 16) // 2
-    out_w   = panel_w * 2
-    top_h   = int(src_h * config.SPLIT_SCREEN_TOP_RATIO)
+    out_w   = int(src_h * 9 / 16)
+    panel_w = out_w // 2
+    out_h   = src_h
+    top_h   = int(out_h * config.SPLIT_SCREEN_TOP_RATIO) if reserve_bottom else out_h
 
     cap     = cv2.VideoCapture(clip_path)
     src_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
@@ -205,7 +242,7 @@ def composite_split(
         "ffmpeg",
         "-f", "rawvideo",
         "-vcodec", "rawvideo",
-        "-s", f"{out_w}x{src_h}",
+        "-s", f"{out_w}x{out_h}",
         "-pix_fmt", "bgr24",
         "-r", f"{src_fps}",
         "-i", "-",
@@ -221,7 +258,7 @@ def composite_split(
 
     assert proc.stdin is not None
 
-    bottom = np.zeros((src_h - top_h, out_w, 3), dtype=np.uint8)
+    black = np.zeros((out_h - top_h, out_w, 3), dtype=np.uint8)
     frame_idx = 0
 
     try:
@@ -233,19 +270,13 @@ def composite_split(
             i = min(frame_idx, len(centers_left) - 1)
 
             if is_split[i]:
-                cx_l = centers_left[i]
-                cx_r = centers_right[i]
-                x1_l = int(np.clip(cx_l - panel_w / 2, 0, src_w - panel_w))
-                x1_r = int(np.clip(cx_r - panel_w / 2, 0, src_w - panel_w))
-                left_crop  = frame[:top_h, x1_l:x1_l + panel_w]
-                right_crop = frame[:top_h, x1_r:x1_r + panel_w]
-                top = np.hstack([left_crop, right_crop])
+                left  = _crop_fill(frame, centers_left[i],  panel_w, top_h, src_w, src_h)
+                right = _crop_fill(frame, centers_right[i], panel_w, top_h, src_w, src_h)
+                top = np.hstack([left, right])
             else:
-                cx_s = centers_single[i]
-                x1_s = int(np.clip(cx_s - out_w / 2, 0, src_w - out_w))
-                top = frame[:top_h, x1_s:x1_s + out_w]
+                top = _crop_fill(frame, centers_single[i], out_w, top_h, src_w, src_h)
 
-            out_frame = np.vstack([top, bottom])
+            out_frame = np.vstack([top, black]) if reserve_bottom else top
             try:
                 proc.stdin.write(out_frame.tobytes())
             except BrokenPipeError:

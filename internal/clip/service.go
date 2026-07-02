@@ -81,14 +81,17 @@ func (s *Service) SetTrackTemplate(id, templateID string) error {
 	return s.repo.SetTrackTemplate(id, templateID)
 }
 
-func (s *Service) SetTrackOpts(id string, smooth, lockMain bool, sensitivity int) error {
+func (s *Service) SetTrackOpts(id string, smooth, lockMain bool, sensitivity int, reserveBottom bool) error {
 	if err := s.repo.SetTrackSmooth(id, smooth); err != nil {
 		return err
 	}
 	if err := s.repo.SetTrackLockMain(id, lockMain); err != nil {
 		return err
 	}
-	return s.repo.SetTrackSensitivity(id, sensitivity)
+	if err := s.repo.SetTrackSensitivity(id, sensitivity); err != nil {
+		return err
+	}
+	return s.repo.SetTrackReserveBottom(id, reserveBottom)
 }
 
 func (s *Service) SetCaptionOpts(id, position, size string) error {

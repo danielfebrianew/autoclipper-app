@@ -7,45 +7,46 @@ import (
 )
 
 type Clip struct {
-	ID                 string    `db:"id"                   json:"id"`
-	ProjectID          string    `db:"project_id"           json:"project_id"`
-	ClipIndex          int       `db:"clip_index"           json:"clip_index"`
-	StartSeconds       int       `db:"start_seconds"        json:"start_seconds"`
-	EndSeconds         int       `db:"end_seconds"          json:"end_seconds"`
-	DurationSeconds    int       `db:"duration_seconds"     json:"duration_seconds"`
-	Speaker            string    `db:"speaker"              json:"speaker"`
-	Hook               string    `db:"hook"                 json:"hook"`
-	Summary            string    `db:"summary"              json:"summary"`
-	Category           string    `db:"category"             json:"category"`
-	EnergyLevel        string    `db:"energy_level"         json:"energy_level"`
-	ViralScore         float64   `db:"viral_score"          json:"viral_score"`
-	ContentScore       float64   `db:"content_score"        json:"content_score"`
-	EngagementScore    float64   `db:"engagement_score"     json:"engagement_score"`
-	ThumbnailText      string    `db:"thumbnail_text"       json:"thumbnail_text"`
-	ThumbnailEmotion   string    `db:"thumbnail_emotion"    json:"thumbnail_emotion"`
-	ThumbnailTimestamp int       `db:"thumbnail_timestamp"  json:"thumbnail_timestamp"`
-	SuggestedCaption   string    `db:"suggested_caption"    json:"suggested_caption"`
-	TranscriptExcerpt  string    `db:"transcript_excerpt"   json:"transcript_excerpt"`
-	Enabled            bool      `db:"enabled"              json:"enabled"`
-	Status             string    `db:"status"               json:"status"`
-	RawClipPath        string    `db:"raw_clip_path"        json:"raw_clip_path"`
-	FaceDataJSON       string    `db:"face_data_json"       json:"face_data_json"`
-	SubtitlePath       string    `db:"subtitle_path"        json:"subtitle_path"`
-	FinalClipPath      string    `db:"final_clip_path"      json:"final_clip_path"`
+	ID                 string  `db:"id"                   json:"id"`
+	ProjectID          string  `db:"project_id"           json:"project_id"`
+	ClipIndex          int     `db:"clip_index"           json:"clip_index"`
+	StartSeconds       int     `db:"start_seconds"        json:"start_seconds"`
+	EndSeconds         int     `db:"end_seconds"          json:"end_seconds"`
+	DurationSeconds    int     `db:"duration_seconds"     json:"duration_seconds"`
+	Speaker            string  `db:"speaker"              json:"speaker"`
+	Hook               string  `db:"hook"                 json:"hook"`
+	Summary            string  `db:"summary"              json:"summary"`
+	Category           string  `db:"category"             json:"category"`
+	EnergyLevel        string  `db:"energy_level"         json:"energy_level"`
+	ViralScore         float64 `db:"viral_score"          json:"viral_score"`
+	ContentScore       float64 `db:"content_score"        json:"content_score"`
+	EngagementScore    float64 `db:"engagement_score"     json:"engagement_score"`
+	ThumbnailText      string  `db:"thumbnail_text"       json:"thumbnail_text"`
+	ThumbnailEmotion   string  `db:"thumbnail_emotion"    json:"thumbnail_emotion"`
+	ThumbnailTimestamp int     `db:"thumbnail_timestamp"  json:"thumbnail_timestamp"`
+	SuggestedCaption   string  `db:"suggested_caption"    json:"suggested_caption"`
+	TranscriptExcerpt  string  `db:"transcript_excerpt"   json:"transcript_excerpt"`
+	Enabled            bool    `db:"enabled"              json:"enabled"`
+	Status             string  `db:"status"               json:"status"`
+	RawClipPath        string  `db:"raw_clip_path"        json:"raw_clip_path"`
+	FaceDataJSON       string  `db:"face_data_json"       json:"face_data_json"`
+	SubtitlePath       string  `db:"subtitle_path"        json:"subtitle_path"`
+	FinalClipPath      string  `db:"final_clip_path"      json:"final_clip_path"`
 	// Editor fields (migration 005)
-	AspectRatio       string `db:"aspect_ratio"       json:"aspect_ratio"`
-	CaptionStyle      string `db:"caption_style"      json:"caption_style"`
-	CaptionPosition   string `db:"caption_position"   json:"caption_position"`
-	CaptionSize       string `db:"caption_size"       json:"caption_size"`
-	CaptionText       string `db:"caption_text"       json:"caption_text"`
-	TrackTemplate     string `db:"track_template"     json:"track_template"`
-	TrackSmooth       bool   `db:"track_smooth"       json:"track_smooth"`
-	TrackLockMain     bool   `db:"track_lock_main"    json:"track_lock_main"`
-	TrackSensitivity  int    `db:"track_sensitivity"  json:"track_sensitivity"`
-	WaveformPath      string `db:"waveform_path"      json:"waveform_path"`
-	Favorite          bool   `db:"favorite"           json:"favorite"`
-	CreatedAt         time.Time `db:"created_at"      json:"created_at"`
-	UpdatedAt         time.Time `db:"updated_at"      json:"updated_at"`
+	AspectRatio        string    `db:"aspect_ratio"       json:"aspect_ratio"`
+	CaptionStyle       string    `db:"caption_style"      json:"caption_style"`
+	CaptionPosition    string    `db:"caption_position"   json:"caption_position"`
+	CaptionSize        string    `db:"caption_size"       json:"caption_size"`
+	CaptionText        string    `db:"caption_text"       json:"caption_text"`
+	TrackTemplate      string    `db:"track_template"     json:"track_template"`
+	TrackSmooth        bool      `db:"track_smooth"       json:"track_smooth"`
+	TrackLockMain      bool      `db:"track_lock_main"    json:"track_lock_main"`
+	TrackSensitivity   int       `db:"track_sensitivity"  json:"track_sensitivity"`
+	TrackReserveBottom bool      `db:"track_reserve_bottom" json:"track_reserve_bottom"`
+	WaveformPath       string    `db:"waveform_path"      json:"waveform_path"`
+	Favorite           bool      `db:"favorite"           json:"favorite"`
+	CreatedAt          time.Time `db:"created_at"      json:"created_at"`
+	UpdatedAt          time.Time `db:"updated_at"      json:"updated_at"`
 }
 
 type Repository struct {
@@ -82,7 +83,7 @@ func (r *Repository) Create(c *Clip) error {
 	return r.CreateBatch([]Clip{*c})
 }
 
-// clipCols selects every column, coalescing nullable TEXT columns to '' so
+// clipCols selects every column, coalescing nullable TEXT columns to ” so
 // scanning into Clip's string fields never fails on NULL (e.g. a clip that
 // has not been generated yet has NULL raw/final/subtitle paths).
 const clipCols = `
@@ -105,7 +106,7 @@ const clipCols = `
 	COALESCE(final_clip_path, '')     AS final_clip_path,
 	aspect_ratio, caption_style, caption_position, caption_size,
 	COALESCE(caption_text, '')        AS caption_text,
-	track_template, track_smooth, track_lock_main, track_sensitivity,
+	track_template, track_smooth, track_lock_main, track_sensitivity, track_reserve_bottom,
 	COALESCE(waveform_path, '')       AS waveform_path,
 	favorite, created_at, updated_at`
 
@@ -149,7 +150,7 @@ func (r *Repository) GetGallery() ([]GalleryItem, error) {
 
 // galleryClipCols is the clip column list with every column qualified by the
 // `c` table alias used in the gallery JOIN, and nullable TEXT columns coalesced
-// to '' so scanning into Clip's string fields never fails on NULL.
+// to ” so scanning into Clip's string fields never fails on NULL.
 const galleryClipCols = `
 	c.id, c.project_id, c.clip_index, c.start_seconds, c.end_seconds, c.duration_seconds,
 	COALESCE(c.speaker, '')             AS speaker,
@@ -170,7 +171,7 @@ const galleryClipCols = `
 	COALESCE(c.final_clip_path, '')     AS final_clip_path,
 	c.aspect_ratio, c.caption_style, c.caption_position, c.caption_size,
 	COALESCE(c.caption_text, '')        AS caption_text,
-	c.track_template, c.track_smooth, c.track_lock_main, c.track_sensitivity,
+	c.track_template, c.track_smooth, c.track_lock_main, c.track_sensitivity, c.track_reserve_bottom,
 	COALESCE(c.waveform_path, '')       AS waveform_path,
 	c.favorite, c.created_at, c.updated_at`
 
@@ -248,6 +249,14 @@ func (r *Repository) SetTrackLockMain(id string, lock bool) error {
 
 func (r *Repository) SetTrackSensitivity(id string, sensitivity int) error {
 	return r.UpdateField(id, "track_sensitivity", sensitivity)
+}
+
+func (r *Repository) SetTrackReserveBottom(id string, reserve bool) error {
+	v := 0
+	if reserve {
+		v = 1
+	}
+	return r.UpdateField(id, "track_reserve_bottom", v)
 }
 
 func (r *Repository) SetWaveformPath(id, path string) error {

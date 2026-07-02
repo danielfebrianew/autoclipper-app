@@ -36,6 +36,7 @@ export interface Clip {
   track_smooth: boolean
   track_lock_main: boolean
   track_sensitivity: number
+  track_reserve_bottom: boolean
   waveform_path: string
   favorite: boolean
 }

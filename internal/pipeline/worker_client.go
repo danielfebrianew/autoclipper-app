@@ -108,21 +108,21 @@ type ExcludeClip struct {
 }
 
 type AnalyzeRequest struct {
-	Transcript           string            `json:"transcript"`
-	HeatmapText          string            `json:"heatmap_text"`
-	Title                string            `json:"title"`
-	Channel              string            `json:"channel"`
-	Duration             int               `json:"duration"`
-	APIKey               string            `json:"api_key"`
-	Model                string            `json:"model"`
-	BaseURL              string            `json:"base_url"`
-	MaxClips             int               `json:"max_clips"`
-	MinDuration          int               `json:"min_duration"`
-	MaxDuration          int               `json:"max_duration"`
-	BufferSeconds        int               `json:"buffer_seconds"`
+	Transcript           string              `json:"transcript"`
+	HeatmapText          string              `json:"heatmap_text"`
+	Title                string              `json:"title"`
+	Channel              string              `json:"channel"`
+	Duration             int                 `json:"duration"`
+	APIKey               string              `json:"api_key"`
+	Model                string              `json:"model"`
+	BaseURL              string              `json:"base_url"`
+	MaxClips             int                 `json:"max_clips"`
+	MinDuration          int                 `json:"min_duration"`
+	MaxDuration          int                 `json:"max_duration"`
+	BufferSeconds        int                 `json:"buffer_seconds"`
 	Snippets             []TranscriptSegment `json:"snippets"`
-	VideoDurationSeconds int               `json:"video_duration_seconds"`
-	ExcludeClips         []ExcludeClip     `json:"exclude_clips,omitempty"`
+	VideoDurationSeconds int                 `json:"video_duration_seconds"`
+	ExcludeClips         []ExcludeClip       `json:"exclude_clips,omitempty"`
 }
 
 type Speaker struct {
@@ -211,27 +211,27 @@ type ReframeRequest struct {
 }
 
 type ReframeResponse struct {
-	Centers      []float64 `json:"centers"`
-	CentersLeft  []float64 `json:"centers_left,omitempty"`
-	CentersRight []float64 `json:"centers_right,omitempty"`
-	IsSplit      []bool    `json:"is_split,omitempty"`
-	SourceW      int       `json:"source_w"`
-	SourceH      int       `json:"source_h"`
-	FPS          float64   `json:"fps"`
+	Centers      []float64              `json:"centers"`
+	CentersLeft  []float64              `json:"centers_left,omitempty"`
+	CentersRight []float64              `json:"centers_right,omitempty"`
+	IsSplit      []bool                 `json:"is_split,omitempty"`
+	SourceW      int                    `json:"source_w"`
+	SourceH      int                    `json:"source_h"`
+	FPS          float64                `json:"fps"`
 	Stats        map[string]interface{} `json:"stats"`
 }
 
 type SubtitleRequest struct {
 	Words        []WordTimestamp `json:"words"`
-	Style        string         `json:"style"`
-	Position     string         `json:"position"`     // top|mid|bot
-	Size         string         `json:"size"`         // S|M|L
-	CaptionText  string         `json:"caption_text"` // manual override
-	ClipDuration float64        `json:"clip_duration"`
-	OutDir       string         `json:"out_dir"`
-	ClipID       string         `json:"clip_id"`
-	SplitMode    bool           `json:"split_mode"`
-	ModelSize    string         `json:"model_size"`   // untuk whisper: tiny|base|small|medium
+	Style        string          `json:"style"`
+	Position     string          `json:"position"`     // top|mid|bot
+	Size         string          `json:"size"`         // S|M|L
+	CaptionText  string          `json:"caption_text"` // manual override
+	ClipDuration float64         `json:"clip_duration"`
+	OutDir       string          `json:"out_dir"`
+	ClipID       string          `json:"clip_id"`
+	SplitMode    bool            `json:"split_mode"`
+	ModelSize    string          `json:"model_size"` // untuk whisper: tiny|base|small|medium
 }
 
 type SubtitleResponse struct {
@@ -240,19 +240,20 @@ type SubtitleResponse struct {
 }
 
 type CompositeRequest struct {
-	ClipPath     string    `json:"clip_path"`
-	ASSPath      string    `json:"ass_path"`
-	Centers      []float64 `json:"centers"`
-	CentersLeft  []float64 `json:"centers_left,omitempty"`
-	CentersRight []float64 `json:"centers_right,omitempty"`
-	IsSplit      []bool    `json:"is_split,omitempty"`
-	SourceW      int       `json:"source_w"`
-	SourceH      int       `json:"source_h"`
-	ClipID       string    `json:"clip_id"`
-	OutDir       string    `json:"out_dir"`
-	Ratio        string    `json:"ratio"` // "9:16"|"1:1"|"4:5"
-	ChannelName  string    `json:"channel_name"`
-	SourceCredit string    `json:"source_credit"`
+	ClipPath      string    `json:"clip_path"`
+	ASSPath       string    `json:"ass_path"`
+	Centers       []float64 `json:"centers"`
+	CentersLeft   []float64 `json:"centers_left,omitempty"`
+	CentersRight  []float64 `json:"centers_right,omitempty"`
+	IsSplit       []bool    `json:"is_split,omitempty"`
+	SourceW       int       `json:"source_w"`
+	SourceH       int       `json:"source_h"`
+	ClipID        string    `json:"clip_id"`
+	OutDir        string    `json:"out_dir"`
+	Ratio         string    `json:"ratio"` // "9:16"|"1:1"|"4:5"
+	ChannelName   string    `json:"channel_name"`
+	SourceCredit  string    `json:"source_credit"`
+	ReserveBottom bool      `json:"reserve_bottom"`
 }
 
 type CompositeResponse struct {
@@ -399,15 +400,15 @@ func (c *WorkerClient) Composite(ctx context.Context, req CompositeRequest) (*Co
 }
 
 type WorkerTuningConfig struct {
-	Encoder           string  `json:"encoder,omitempty"`
-	Bitrate           string  `json:"bitrate,omitempty"`
-	DeadzoneRatio     float64 `json:"deadzone_ratio,omitempty"`
-	MaxSpeedPxPerSec  float64 `json:"max_speed_px_per_sec,omitempty"`
-	SmoothingTauSec   float64 `json:"smoothing_tau_sec,omitempty"`
-	SceneCutScore     float64 `json:"scene_cut_score,omitempty"`
-	SceneCutHist      float64 `json:"scene_cut_hist,omitempty"`
-	SceneCutPixel     float64 `json:"scene_cut_pixel,omitempty"`
-	DataDir           string  `json:"data_dir,omitempty"`
+	Encoder          string  `json:"encoder,omitempty"`
+	Bitrate          string  `json:"bitrate,omitempty"`
+	DeadzoneRatio    float64 `json:"deadzone_ratio,omitempty"`
+	MaxSpeedPxPerSec float64 `json:"max_speed_px_per_sec,omitempty"`
+	SmoothingTauSec  float64 `json:"smoothing_tau_sec,omitempty"`
+	SceneCutScore    float64 `json:"scene_cut_score,omitempty"`
+	SceneCutHist     float64 `json:"scene_cut_hist,omitempty"`
+	SceneCutPixel    float64 `json:"scene_cut_pixel,omitempty"`
+	DataDir          string  `json:"data_dir,omitempty"`
 }
 
 type WorkerTuningResponse struct {

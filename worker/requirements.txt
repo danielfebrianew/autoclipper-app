@@ -9,3 +9,5 @@ python-multipart==0.0.12
 
 # dev/test
 pytest==9.1.1
+
+# Optional: Active Speaker Detection (see requirements-asd.txt)

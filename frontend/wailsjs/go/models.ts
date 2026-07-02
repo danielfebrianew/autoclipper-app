@@ -35,6 +35,7 @@ export namespace clip {
 	    track_smooth: boolean;
 	    track_lock_main: boolean;
 	    track_sensitivity: number;
+	    track_reserve_bottom: boolean;
 	    waveform_path: string;
 	    favorite: boolean;
 	    // Go type: time
@@ -82,6 +83,7 @@ export namespace clip {
 	        this.track_smooth = source["track_smooth"];
 	        this.track_lock_main = source["track_lock_main"];
 	        this.track_sensitivity = source["track_sensitivity"];
+	        this.track_reserve_bottom = source["track_reserve_bottom"];
 	        this.waveform_path = source["waveform_path"];
 	        this.favorite = source["favorite"];
 	        this.created_at = this.convertValues(source["created_at"], null);
@@ -141,6 +143,7 @@ export namespace clip {
 	    track_smooth: boolean;
 	    track_lock_main: boolean;
 	    track_sensitivity: number;
+	    track_reserve_bottom: boolean;
 	    waveform_path: string;
 	    favorite: boolean;
 	    // Go type: time
@@ -190,6 +193,7 @@ export namespace clip {
 	        this.track_smooth = source["track_smooth"];
 	        this.track_lock_main = source["track_lock_main"];
 	        this.track_sensitivity = source["track_sensitivity"];
+	        this.track_reserve_bottom = source["track_reserve_bottom"];
 	        this.waveform_path = source["waveform_path"];
 	        this.favorite = source["favorite"];
 	        this.created_at = this.convertValues(source["created_at"], null);
@@ -605,6 +609,7 @@ export namespace main {
 	    smooth: boolean;
 	    lock_main: boolean;
 	    sensitivity: number;
+	    reserve_bottom: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new TrackOpts(source);
@@ -615,6 +620,7 @@ export namespace main {
 	        this.smooth = source["smooth"];
 	        this.lock_main = source["lock_main"];
 	        this.sensitivity = source["sensitivity"];
+	        this.reserve_bottom = source["reserve_bottom"];
 	    }
 	}
 	export class TranscriptSegment {

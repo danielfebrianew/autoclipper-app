@@ -25,6 +25,7 @@ class CompositeRequest(BaseModel):
     ratio: str = "9:16"
     channel_name: str = ""
     source_credit: str = ""
+    reserve_bottom: bool = False
 
 
 @router.post("/composite")
@@ -64,6 +65,7 @@ def composite(req: CompositeRequest):
                 src_w, src_h, req.ass_path, output_path,
                 channel_name=req.channel_name,
                 source_credit=req.source_credit,
+                reserve_bottom=req.reserve_bottom,
             )
         else:
             from processing.ffmpeg_utils import composite as composite_fn
@@ -73,6 +75,7 @@ def composite(req: CompositeRequest):
                 channel_name=req.channel_name,
                 source_credit=req.source_credit,
                 ratio=req.ratio,
+                reserve_bottom=req.reserve_bottom,
             )
 
     except Exception as e:

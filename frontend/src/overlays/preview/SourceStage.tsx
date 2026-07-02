@@ -16,18 +16,28 @@ interface Props {
   cropZones: NormBox[]
   cropLabel: string
   smooth: boolean
+  volume: number   // 0..1
+  muted: boolean
   onTimeUpdate: (t: number) => void
   onPlayStateChange: (playing: boolean) => void
   onLoadedMetadata?: (w: number, h: number, duration: number) => void
 }
 
 export default forwardRef<SourceStageHandle, Props>(function SourceStage(
-  { src, inPoint, outPoint, showCrop, cropZones, cropLabel, smooth, onTimeUpdate, onPlayStateChange, onLoadedMetadata },
+  { src, inPoint, outPoint, showCrop, cropZones, cropLabel, smooth, volume, muted, onTimeUpdate, onPlayStateChange, onLoadedMetadata },
   ref
 ) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const loopRef = useRef({ inPoint, outPoint })
   loopRef.current = { inPoint, outPoint }
+
+  // Keep the <video> volume/mute in sync (re-applies on [src] once it mounts async).
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    v.volume = volume
+    v.muted = muted
+  }, [volume, muted, src])
 
   useImperativeHandle(ref, () => ({
     play: () => videoRef.current?.play(),

@@ -180,8 +180,9 @@ func (g *Generator) runClipPipeline(ctx context.Context, videoPath string, c cli
 	if captionSize == "" {
 		captionSize = "M"
 	}
+	// Only two tracking modes are supported now; fold any legacy value into single.
 	trackTemplate := c.TrackTemplate
-	if trackTemplate == "" {
+	if trackTemplate != "single" && trackTemplate != "dual" {
 		trackTemplate = "single"
 	}
 
@@ -248,7 +249,10 @@ func (g *Generator) runClipPipeline(ctx context.Context, videoPath string, c cli
 
 	// Step 4: subtitle
 	emitStep("subtitle", 65, "Generating subtitles...")
-	splitMode := trackTemplate == "dual" || trackTemplate == "dual_side"
+	// reserve_bottom drives the 60/40 layout for BOTH modes. Previews stay full-frame.
+	reserveBottom := c.TrackReserveBottom && !preview
+	// Captions must dodge the reserved black band → split_mode follows reserve_bottom.
+	splitMode := reserveBottom
 	clipDuration := float64(c.EndSeconds - c.StartSeconds)
 	subtitleResp, err := g.worker.GenerateSubtitle(ctx, SubtitleRequest{
 		Words:        whisperResp.Words,
@@ -280,17 +284,18 @@ func (g *Generator) runClipPipeline(ctx context.Context, videoPath string, c cli
 	}
 
 	compositeResp, err := g.worker.Composite(ctx, CompositeRequest{
-		ClipPath:     cutResp.ClipPath,
-		ASSPath:      subtitleResp.ASSPath,
-		Centers:      reframeResp.Centers,
-		CentersLeft:  reframeResp.CentersLeft,
-		CentersRight: reframeResp.CentersRight,
-		IsSplit:      reframeResp.IsSplit,
-		SourceW:      reframeResp.SourceW,
-		SourceH:      reframeResp.SourceH,
-		ClipID:       clipID,
-		OutDir:       outputDir,
-		Ratio:        ratio,
+		ClipPath:      cutResp.ClipPath,
+		ASSPath:       subtitleResp.ASSPath,
+		Centers:       reframeResp.Centers,
+		CentersLeft:   reframeResp.CentersLeft,
+		CentersRight:  reframeResp.CentersRight,
+		IsSplit:       reframeResp.IsSplit,
+		SourceW:       reframeResp.SourceW,
+		SourceH:       reframeResp.SourceH,
+		ClipID:        clipID,
+		OutDir:        outputDir,
+		Ratio:         ratio,
+		ReserveBottom: reserveBottom,
 	})
 	if err != nil {
 		return fmt.Errorf("composite: %w", err)
